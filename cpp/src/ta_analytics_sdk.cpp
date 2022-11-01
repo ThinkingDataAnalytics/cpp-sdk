@@ -42,8 +42,6 @@ const static std::string TD_EVENT_TYPE_USER_APPEND     = "user_append";
 
 namespace thinkingdata {
 
-namespace utils {
-
 int64_t currentTimestamp() {
     int64_t current_timestamp;
 #if defined(_WIN32)
@@ -222,7 +220,7 @@ void TDJSONObject::SetDateTime(const string &property_name,
     properties_map_[property_name] = ValueNode(seconds, milliseconds);
 }
 
-void utils::TDJSONObject::SetDateTime(const string &property_name,
+void TDJSONObject::SetDateTime(const string &property_name,
                                       const string &value) {
     properties_map_[property_name] = ValueNode(value);
 }
@@ -346,7 +344,7 @@ string TDJSONObject::ToJson(const TDJSONObject &node) {
     return buffer;
 }
 
-void TDJSONObject::MergeFrom(const utils::TDJSONObject &another_node) {
+void TDJSONObject::MergeFrom(const TDJSONObject &another_node) {
     for (std::map<string, ValueNode>::const_iterator
          iterator = another_node.properties_map_.begin();
          iterator != another_node.properties_map_.end(); ++iterator) {
@@ -356,28 +354,28 @@ void TDJSONObject::MergeFrom(const utils::TDJSONObject &another_node) {
 
 TDJSONObject::TDJSONObject() {}
 
-utils::TDJSONObject::ValueNode::ValueNode(double value) : node_type_(NUMBER) {
+TDJSONObject::ValueNode::ValueNode(double value) : node_type_(NUMBER) {
     value_.number_value = value;
 }
 
-utils::TDJSONObject::ValueNode::ValueNode(int64_t value) : node_type_(INT) {
+TDJSONObject::ValueNode::ValueNode(int64_t value) : node_type_(INT) {
     value_.int_value = value;
 }
 
-utils::TDJSONObject::ValueNode::ValueNode(const string &value)
+TDJSONObject::ValueNode::ValueNode(const string &value)
 : node_type_(STRING),
 string_data_(value) {}
 
-utils::TDJSONObject::ValueNode::ValueNode(bool value) : node_type_(BOOL) {
+TDJSONObject::ValueNode::ValueNode(bool value) : node_type_(BOOL) {
     value_.bool_value = value;
 }
 
-utils::TDJSONObject::ValueNode::ValueNode(const utils::TDJSONObject &value)
+TDJSONObject::ValueNode::ValueNode(const TDJSONObject &value)
 : node_type_(OBJECT) {
     object_data_ = value;
 }
 
-utils::TDJSONObject::ValueNode::ValueNode(const std::vector<string> &value)
+TDJSONObject::ValueNode::ValueNode(const std::vector<string> &value)
 : node_type_(LIST),
 list_data_(value) {}
 
@@ -385,29 +383,29 @@ TDJSONObject::ValueNode::ValueNode(const std::vector<TDJSONObject> &value)
 : node_type_(OBJECTS),
 list_obj_(value) {}
 
-utils::TDJSONObject::ValueNode::ValueNode(time_t seconds, int milliseconds)
+TDJSONObject::ValueNode::ValueNode(time_t seconds, int milliseconds)
 : node_type_(DATETIME) {
     value_.date_time_value.seconds = seconds;
     value_.date_time_value.milliseconds = milliseconds;
 }
 
-utils::ThinkingAnalyticsEvent::ThinkingAnalyticsEvent(string eventName, TDJSONObject properties) {
+ThinkingAnalyticsEvent::ThinkingAnalyticsEvent(string eventName, TDJSONObject properties) {
     this->mEventName = eventName;
     this->mProperties = properties;
 }
-utils::TDFirstEvent::TDFirstEvent(string eventName, TDJSONObject properties):ThinkingAnalyticsEvent(eventName,properties) {
+TDFirstEvent::TDFirstEvent(string eventName, TDJSONObject properties):ThinkingAnalyticsEvent(eventName,properties) {
     this->mType = FIRST;
     this->mExtraId = "";
 }
 
-void utils::TDFirstEvent::setFirstCheckId(string firstCheckId) {
+void TDFirstEvent::setFirstCheckId(string firstCheckId) {
     this->mExtraId = firstCheckId;
 }
-utils::TDUpdatableEvent::TDUpdatableEvent(string eventName, TDJSONObject properties, string eventId):ThinkingAnalyticsEvent(eventName,properties) {
+TDUpdatableEvent::TDUpdatableEvent(string eventName, TDJSONObject properties, string eventId):ThinkingAnalyticsEvent(eventName,properties) {
     this->mExtraId = eventId;
     this->mType = UPDATABLE;
 }
-utils::TDOverWritableEvent::TDOverWritableEvent(string eventName, TDJSONObject properties, string eventId):ThinkingAnalyticsEvent(eventName,properties) {
+TDOverWritableEvent::TDOverWritableEvent(string eventName, TDJSONObject properties, string eventId):ThinkingAnalyticsEvent(eventName,properties) {
     this->mExtraId = eventId;
     this->mType = OVERWRITABLE;
 }
@@ -415,7 +413,7 @@ utils::TDOverWritableEvent::TDOverWritableEvent(string eventName, TDJSONObject p
 
 
 void
-utils::TDJSONObject::ValueNode::ToStr(const utils::TDJSONObject::ValueNode &node,
+TDJSONObject::ValueNode::ToStr(const TDJSONObject::ValueNode &node,
                                       string *buffer) {
     switch (node.node_type_) {
         case NUMBER:
@@ -460,8 +458,6 @@ void TDJSONObject::ValueNode::DumpNumber(int64_t value, string *buffer) {
     buf.imbue(locale("C"));
     buf << value;
     *buffer += buf.str();
-}
-
 }
 
 class HttpSender {
@@ -612,9 +608,6 @@ bool HttpSender::encodeToRequestBody(const string &data, string *request_body) {
     return true;
 }
 
-void PropertiesNode::SetObject(const string &property_name,
-                               const utils::TDJSONObject &value) {}
-
 class DefaultConsumer {
 public:
     DefaultConsumer(const string &server_url,
@@ -623,7 +616,7 @@ public:
     
     void Init();
     
-    void Send(const utils::TDJSONObject &record);
+    void Send(const TDJSONObject &record);
 
     void EnableLog(bool enable_log);
     
@@ -683,15 +676,16 @@ DefaultConsumer::DefaultConsumer(const string &server_url,
 : enable_log_(false),
 sender_(new HttpSender(server_url, appid)) {}
 
-void DefaultConsumer::Send(const utils::TDJSONObject &record) {
-    const string json_record = utils::TDJSONObject::ToJson(record);
+void DefaultConsumer::Send(const TDJSONObject &record) {
+    const string json_record = TDJSONObject::ToJson(record);
     std::stringstream buffer;
     if (enable_log_) {
         std::cout << "record : " + json_record << std::endl;
     }
     
     std::vector<std::pair<string,string> > http_headers;
-    bool send_result = sender_->send(json_record);
+//    bool send_result = sender_->send(json_record);
+    sender_->send(json_record);
 }
 
 void DefaultConsumer::EnableLog(bool enable_log) {
@@ -709,8 +703,6 @@ void DefaultConsumer::Init() {
 
 ThinkingAnalyticsAPI *ThinkingAnalyticsAPI::instance_ = NULL;
 
-#define RETURN_IF_ERROR(stmt) do { if (!stmt) return false; } while (false)
-
 bool ThinkingAnalyticsAPI::Init(const std::string &server_url,
                                 const std::string &appid,
                                 const std::string &data_file_path) {
@@ -726,6 +718,7 @@ bool ThinkingAnalyticsAPI::Init(const std::string &server_url,
         // 恢复distinctid、accountid
         string accountid = ta_cpp_helper::loadAccount(appid.c_str(), data_file_path.c_str());
         string distinctid = ta_cpp_helper::loadDistinctId(appid.c_str(), data_file_path.c_str());
+        
         if (accountid.length() != 0) {
             instance_->account_id_ = accountid;
         }
@@ -745,7 +738,7 @@ void ThinkingAnalyticsAPI::EnableLog(bool enable) {
 
 }
 
-void ThinkingAnalyticsAPI::AddUser(string eventType, const utils::TDJSONObject &properties)
+void ThinkingAnalyticsAPI::AddUser(string eventType, const TDJSONObject &properties)
 {
     AddEvent(eventType, "", properties, "", "");
 }
@@ -753,13 +746,13 @@ void ThinkingAnalyticsAPI::AddUser(string eventType, const utils::TDJSONObject &
 
 bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
                                     const string &event_name,
-                                    const utils::TDJSONObject &properties,
+                                    const TDJSONObject &properties,
                                     const string &firstCheckID,
                                     const string &eventID) {
 
-    utils::TDJSONObject flushDic;
-    utils::TDJSONObject finalDic;
-    utils::TDJSONObject propertyDic;
+    TDJSONObject flushDic;
+    TDJSONObject finalDic;
+    TDJSONObject propertyDic;
     
     string first_check_id = firstCheckID;
     string eventType = action_type;
@@ -823,7 +816,7 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
     propertyDic.MergeFrom(properties);
     finalDic.SetObject("properties", propertyDic);
     
-    std::vector<utils::TDJSONObject> data;
+    std::vector<TDJSONObject> data;
     data.push_back(finalDic);
     flushDic.SetList("data", data);
     flushDic.SetString("#app_id", appid_);
@@ -835,7 +828,7 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
     return true;
 }
 
-void ThinkingAnalyticsAPI::Track(const string &event_name, const PropertiesNode &properties) {
+void ThinkingAnalyticsAPI::Track(const string &event_name, const TDJSONObject &properties) {
     if (instance_) {
         instance_->AddEvent(TD_EVENT_TYPE,
                             event_name,
@@ -846,7 +839,7 @@ void ThinkingAnalyticsAPI::Track(const string &event_name, const PropertiesNode 
 }
 
 
-void ThinkingAnalyticsAPI::Track(utils::TDFirstEvent* event) {
+void ThinkingAnalyticsAPI::Track(TDFirstEvent* event) {
     if (instance_) {
         instance_->AddEvent(TD_EVENT_TYPE_TRACK_FIRST,
                             event->mEventName,
@@ -856,7 +849,7 @@ void ThinkingAnalyticsAPI::Track(utils::TDFirstEvent* event) {
     }
 }
 
-void ThinkingAnalyticsAPI::Track(utils::TDUpdatableEvent* event) {
+void ThinkingAnalyticsAPI::Track(TDUpdatableEvent* event) {
     if (instance_) {
         instance_->AddEvent(TD_EVENT_TYPE_TRACK_UPDATE,
                             event->mEventName,
@@ -866,7 +859,7 @@ void ThinkingAnalyticsAPI::Track(utils::TDUpdatableEvent* event) {
     }
 }
 
-void ThinkingAnalyticsAPI::Track(utils::TDOverWritableEvent* event) {
+void ThinkingAnalyticsAPI::Track(TDOverWritableEvent* event) {
     if (instance_) {
         instance_->AddEvent(TD_EVENT_TYPE_TRACK_OVERWRITE,
                             event->mEventName,
@@ -879,7 +872,7 @@ void ThinkingAnalyticsAPI::Track(utils::TDOverWritableEvent* event) {
 
 
 void ThinkingAnalyticsAPI::Track(const string &event_name) {
-    PropertiesNode properties_node;
+    TDJSONObject properties_node;
     Track(event_name, properties_node);
 }
 
@@ -914,25 +907,25 @@ string ThinkingAnalyticsAPI::DistinctID() {
 }
 
 
-void ThinkingAnalyticsAPI::UserSet(const utils::TDJSONObject &properties) {
+void ThinkingAnalyticsAPI::UserSet(const TDJSONObject &properties) {
     if (instance_) {
         instance_->AddUser(TD_EVENT_TYPE_USER_SET, properties);
     }
     
 }
-void ThinkingAnalyticsAPI::UserSetOnce(const utils::TDJSONObject &properties) {
+void ThinkingAnalyticsAPI::UserSetOnce(const TDJSONObject &properties) {
     if (instance_) {
         instance_->AddUser(TD_EVENT_TYPE_USER_SETONCE, properties);
     }
     
 }
-void ThinkingAnalyticsAPI::UserAdd(const utils::TDJSONObject &properties) {
+void ThinkingAnalyticsAPI::UserAdd(const TDJSONObject &properties) {
     if (instance_) {
         instance_->AddUser(TD_EVENT_TYPE_USER_APPEND, properties);
     }
     
 }
-void ThinkingAnalyticsAPI::UserAppend(const utils::TDJSONObject &properties) {
+void ThinkingAnalyticsAPI::UserAppend(const TDJSONObject &properties) {
     if (instance_) {
         instance_->AddUser(TD_EVENT_TYPE_USER_ADD, properties);
     }
@@ -940,14 +933,14 @@ void ThinkingAnalyticsAPI::UserAppend(const utils::TDJSONObject &properties) {
 }
 void ThinkingAnalyticsAPI::UserDelete() {
     if (instance_) {
-        utils::TDJSONObject  node;
+        TDJSONObject  node;
         instance_->AddUser(TD_EVENT_TYPE_USER_DEL, node);
     }
     
 }
 void ThinkingAnalyticsAPI::UserUnset(string propertyName)  {
     if (instance_) {
-        utils::TDJSONObject  obj;
+        TDJSONObject  obj;
         obj.SetNumber(propertyName, 0);
         instance_->AddUser(TD_EVENT_TYPE_USER_UNSET, obj);
     }

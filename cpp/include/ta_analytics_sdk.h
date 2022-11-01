@@ -13,7 +13,7 @@
 #include <utility>
 #include <vector>
 
-#define TD_LIB_VERSION "1.0.0"
+#define TD_LIB_VERSION "1.2.0"
 
 #define TD_LIB_NAME "Cpp"
 
@@ -38,15 +38,10 @@ class ThinkingAnalyticsAPI;
 
 class DefaultConsumer;
 
-class PropertiesNode;
-
-namespace utils {
-
 class TDJSONObject;
 class TDFirstEvent;
 class TDUpdatableEvent;
 class TDOverWritableEvent;
-}
 
 
 class ThinkingAnalyticsAPI {
@@ -66,21 +61,21 @@ public:
     
     static void Track(const string &event_name);
     
-    static void Track(const string &event_name, const PropertiesNode &properties);
+    static void Track(const string &event_name, const TDJSONObject &properties);
     
-    static void Track(utils::TDFirstEvent* event);
+    static void Track(TDFirstEvent* event);
     
-    static void Track(utils::TDUpdatableEvent* event);
+    static void Track(TDUpdatableEvent* event);
     
-    static void Track(utils::TDOverWritableEvent* event);
+    static void Track(TDOverWritableEvent* event);
     
-    static void UserSet(const utils::TDJSONObject &properties);
+    static void UserSet(const TDJSONObject &properties);
     
-    static void UserSetOnce(const utils::TDJSONObject &properties);
+    static void UserSetOnce(const TDJSONObject &properties);
     
-    static void UserAdd(const utils::TDJSONObject &properties);
+    static void UserAdd(const TDJSONObject &properties);
     
-    static void UserAppend(const utils::TDJSONObject &properties);
+    static void UserAppend(const TDJSONObject &properties);
     
     static void UserDelete();
     
@@ -105,11 +100,11 @@ private:
     ThinkingAnalyticsAPI &operator=(const ThinkingAnalyticsAPI &);
     
     bool AddEvent(const string &action_type, const string &event_name,
-                  const utils::TDJSONObject &properties,
+                  const TDJSONObject &properties,
                   const string &firstCheckID = "",
                   const string &eventID = "");
     
-    void AddUser(string eventType, const utils::TDJSONObject &properties);
+    void AddUser(string eventType, const TDJSONObject &properties);
     
     static ThinkingAnalyticsAPI *instance_;
     
@@ -121,7 +116,6 @@ private:
     DefaultConsumer *consumer_;
 };
 
-namespace utils {
 
 class TDJSONObject {
 public:
@@ -149,7 +143,7 @@ public:
     
     void Clear();
     
-    virtual void SetObject(const string &property_name, const TDJSONObject &value);
+    void SetObject(const string &property_name, const TDJSONObject &value);
     
     static string ToJson(const TDJSONObject &node);
     
@@ -268,18 +262,6 @@ class TDOverWritableEvent: public ThinkingAnalyticsEvent
 {
 public:
     TDOverWritableEvent(string eventName,TDJSONObject properties,string eventId);
-};
-
-
-}
-
-
-
-class PropertiesNode : public utils::TDJSONObject {
-
-    friend class ThinkingAnalyticsAPI;
-    
-    void SetObject(const string &property_name, const TDJSONObject &value);
 };
 
 }
