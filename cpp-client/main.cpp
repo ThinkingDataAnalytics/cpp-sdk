@@ -136,7 +136,6 @@ int main() {
 //        ThinkingAnalyticsAPI::Flush();
     }
 
-    // 主线程睡眠
 #if defined(_WIN32)
     Sleep(4 * 1000);
 #else

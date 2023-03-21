@@ -44,12 +44,15 @@ namespace thinkingdata {
         ~TASqiteInsetTask();
         void DoTask();
         void Stop();
-        TASqiteInsetTask(TASqliteDataQueue &sqliteQueue, string event, string appid, bool enableLog);
+
+        TASqiteInsetTask(TAHttpSend& m_httpSend, TASqliteDataQueue &sqliteQueue, string event, string appid, bool enableLog, void(*callback)(int));
     private:
         string m_event;
         string m_appid;
         TASqliteDataQueue &m_sqliteQueue;
         bool m_enableLog;
+        TAHttpSend& m_httpSend;
+        void(*m_callback)(int);
     };
 
     class TASqiteDeleteTask : public TAITask {
@@ -80,6 +83,7 @@ namespace thinkingdata {
 
     class TATaskQueue {
     public:
+        bool isStop;
         TATaskQueue();
         ~TATaskQueue();
 
@@ -91,6 +95,7 @@ namespace thinkingdata {
     private:
         mutex m_lock;
         thread *m_pThread;
+
         queue<shared_ptr<TAITask>> m_taskQue;
         shared_ptr<TAITask> m_currentTask;
     };

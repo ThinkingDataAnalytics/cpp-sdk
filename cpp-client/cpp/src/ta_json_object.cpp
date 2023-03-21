@@ -1,8 +1,14 @@
-//
+﻿//
 // Created by wwango on 2022/11/14.
 //
 #include "ta_json_object.h"
 #include <iostream>
+
+#if defined(_WIN32)
+#include "windows.h"
+#include "stringapiset.h"
+#endif
+
 
 namespace thinkingdata {
     using namespace std;
@@ -64,16 +70,57 @@ namespace thinkingdata {
         return bytes - begin == str.length();
     }
 
+#if defined(_WIN32)
+    // std::string to UTF-8
+    std::string string_To_UTF8(const std::string& str)
+    {
+        int nwLen = ::MultiByteToWideChar(CP_ACP, 0, str.c_str(), -1, NULL, 0);
+
+        wchar_t* pwBuf = new wchar_t[nwLen + 1];
+        ZeroMemory(pwBuf, nwLen * 2 + 2);
+
+        ::MultiByteToWideChar(CP_ACP, 0, str.c_str(), str.length(), pwBuf, nwLen);
+
+        int nLen = ::WideCharToMultiByte(CP_UTF8, 0, pwBuf, -1, NULL, NULL, NULL, NULL);
+
+        char* pBuf = new char[nLen + 1];
+        ZeroMemory(pBuf, nLen + 1);
+
+        ::WideCharToMultiByte(CP_UTF8, 0, pwBuf, nwLen, pBuf, nLen, NULL, NULL);
+
+        std::string retStr(pBuf);
+
+        delete[]pwBuf;
+        delete[]pBuf;
+
+        pwBuf = NULL;
+        pBuf = NULL;
+
+        return retStr;
+    }
+#endif
+
     void TDJSONObject::SetString(const string &property_name, const string &value) {
 //    if (value.length() > kStringPropertyValueMaxLength) {
 //        std::cerr << "String property '" << property_name
 //        << "' is too long, value: " << value << std::endl;
 //        return;
 //    }
+
+        if (!CheckUtf8Valid(property_name)) {
+            std::cerr << "String Key '" << property_name
+                << "' is not valid string, key: " << value
+                << std::endl;
+            return;
+        }
+
         if (!CheckUtf8Valid(value)) {
             std::cerr << "String property '" << property_name
                       << "' is not valid UTF-8 string, value: " << value
                       << std::endl;
+#if defined(_WIN32)
+            properties_map_[property_name] = ValueNode(string_To_UTF8(value));
+#endif  
             return;
         }
         properties_map_[property_name] = ValueNode(value);
@@ -235,8 +282,8 @@ namespace thinkingdata {
 
     void TDJSONObject::MergeFrom(const TDJSONObject &another_node) {
         for (std::map<string, ValueNode>::const_iterator
-                     iterator = another_node.properties_map_.begin();
-             iterator != another_node.properties_map_.end(); ++iterator) {
+            iterator = another_node.properties_map_.begin();
+            iterator != another_node.properties_map_.end(); ++iterator) {
             properties_map_[iterator->first] = iterator->second;
         }
     }

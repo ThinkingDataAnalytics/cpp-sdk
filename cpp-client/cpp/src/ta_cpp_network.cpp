@@ -134,13 +134,6 @@ Response Connection::PerformCurlRequest(const string &uri) {
   }
   curl_easy_setopt(this->curl_handle_, CURLOPT_HTTPHEADER, header_list);
 
-  // 若使用 HTTPS，有两种配置方式，选用其中一种即可：
-  // 1. 使用 CA 证书（下载地址 http://curl.haxx.se/ca/cacert.pem
-  // ），去掉下面一行的注释，并指定证书路径，例如证书在当前目录下
-  // curl_easy_setopt(this->curl_handle_, CURLOPT_CAINFO, "cacert.pem");
-  // 2. （不建议，仅测试时方便可以使用）不验证服务端证书，去掉下面两行的注释
-  // curl_easy_setopt(this->curl_handle_, CURLOPT_SSL_VERIFYHOST, 0L);
-  // curl_easy_setopt(this->curl_handle_, CURLOPT_SSL_VERIFYPEER, 0L);
 
   // set timeout
   if (this->timeout_) {

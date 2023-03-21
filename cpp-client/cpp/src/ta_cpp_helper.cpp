@@ -4,33 +4,64 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include <string>
 
 #if defined(_WIN32)
 #include <windows.h>
+#else
+#include <uuid/uuid.h>
 #endif
+
 
 namespace thinkingdata {
 
     using namespace std;
 
     string ta_cpp_helper::getEventID() {
-        char str_uuid[80];
-        static bool hassrand;
-        if (hassrand != true) {
-            srand(time(NULL));
-            hassrand = true;
-        }
-        snprintf(str_uuid, sizeof(str_uuid),
-                 "%x%x-%x-%x-%x-%x%x%x",
-                 rand(),
-                 rand(),
-                 rand(),
-                 ((rand() & 0x0fff) | 0x4000),
-                 rand() % 0x3fff + 0x8000,
-                 rand(),
-                 rand(),
-                 rand());
-        return string(str_uuid);
+#ifdef _WIN32
+
+        string uuid;
+        uuid.resize(36);
+
+        char characterSet[] = "0123456789abcdefghijklmnopqrstuvwxyz";
+
+        // 8 characters
+        for (int i = 0; i < 8; i++)
+            uuid[i] = characterSet[rand() % 36];
+
+        // 4 characters
+        for (int i = 9; i < 13; i++)
+            uuid[i] = characterSet[rand() % 36];
+
+        // 4 characters
+        for (int i = 14; i < 18; i++)
+            uuid[i] = characterSet[rand() % 36];
+
+        // 4 characters
+        for (int i = 19; i < 23; i++)
+            uuid[i] = characterSet[rand() % 36];
+
+        // 12 characters
+        for (int i = 24; i < 36; i++)
+            uuid[i] = characterSet[rand() % 36];
+
+        // Separators
+        uuid[8] = '-';
+        uuid[13] = '-';
+        uuid[18] = '-';
+        uuid[23] = '-';
+
+ 
+        return uuid;
+#else
+        std::string guid("");
+        uuid_t uuid;
+        char str[50] = {};
+        uuid_generate(uuid);
+        uuid_unparse(uuid, str);
+        guid.assign(str);
+        return guid;
+#endif
     }
     
     string ta_cpp_helper::getDeviceID() {

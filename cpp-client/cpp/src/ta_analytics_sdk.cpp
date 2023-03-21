@@ -46,6 +46,11 @@ const static string TD_EVENT_TYPE_USER_APPEND     = "user_append";
 
 namespace thinkingdata {
 
+    typedef void (*func)(int x);
+    bool  _flush;
+
+
+
 void myToTDJSON(tacJSON *myjson, TDJSONObject &ppp);
 
 void myArrToTDJSON(tacJSON *myjson, TDJSONObject &ppp) {
@@ -167,6 +172,19 @@ void TDJSONObject::ValueNode::DumpNumber(int64_t value, string *buffer) {
 
 ThinkingAnalyticsAPI *ThinkingAnalyticsAPI::instance_ = NULL;
 
+void fun(int num)
+{
+    srand((unsigned)time(NULL));
+    if (_flush || num >= 10)
+    {
+        if (ThinkingAnalyticsAPI::instance_ != NULL)
+        {
+            ThinkingAnalyticsAPI::instance_->Flush();
+            _flush = false;
+        }
+    }
+}
+
 bool ThinkingAnalyticsAPI::Init(const string &server_url,
                                 const string &appid) {
     string oldsuperpstring;
@@ -174,17 +192,16 @@ bool ThinkingAnalyticsAPI::Init(const string &server_url,
     if (!instance_) {
         string data_file_path = "";
         instance_ = new ThinkingAnalyticsAPI(server_url, appid);
-        instance_->httpSend_->Init();
+       instance_->httpSend_->Init();
+       
         srand((unsigned)time(NULL));
         
         instance_->distinct_id_ = ta_cpp_helper::getDeviceID();
         instance_->account_id_ = "";
         
-        // 恢复distinctid、accountid
         string accountid = ta_cpp_helper::loadAccount(appid.c_str(), data_file_path.c_str());
         string distinctid = ta_cpp_helper::loadDistinctId(appid.c_str(), data_file_path.c_str());
 
-        // 恢复之前的属性
         oldsuperpstring = ta_cpp_helper::loadSuperProperty(appid.c_str(), data_file_path.c_str());
         tacJSON* root_obj = NULL;
         TDJSONObject *superProperties = new TDJSONObject();
@@ -196,6 +213,7 @@ bool ThinkingAnalyticsAPI::Init(const string &server_url,
         }
         instance_->m_superProperties = superProperties;
 
+  
         if (accountid.length() != 0) {
             instance_->account_id_ = accountid;
         }
@@ -205,9 +223,14 @@ bool ThinkingAnalyticsAPI::Init(const string &server_url,
         
         instance_->appid_ = appid;
         instance_->server_url_ = server_url;
-
+        
+     
         instance_->m_sqlite = new TASqliteDataQueue(appid);
+      
+
+        printf("\n[ThinkingEngine] Info: ThinkingEngine SDK initialize success, AppId = %s, ServerUrl = %s, Mode = Normal, DeviceId = xxx\n", appid.c_str(), server_url.c_str(), ta_cpp_helper::getDeviceID().c_str());
     }
+
     return true;
 }
 
@@ -217,7 +240,6 @@ void ThinkingAnalyticsAPI::EnableLog(bool enable) {
         instance_->enableLog = enable;
         instance_->httpSend_->EnableLog(enable);
     }
-
 }
 
 void ThinkingAnalyticsAPI::AddUser(string eventType, const TDJSONObject &properties)
@@ -232,6 +254,7 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
                                     const string &firstCheckID,
                                     const string &eventID) {
 
+   
     TDJSONObject flushDic;
     TDJSONObject finalDic;
     TDJSONObject propertyDic;
@@ -261,8 +284,14 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
     timeb t;
     ftime(&t);
     finalDic.SetDateTime("#time", t.time, t.millitm);
+    
+  /*  string uuidd = string();
+    int b = 123;
+    wchar_t a[MAX_PATH] = { 0 };
+    wsprintf(a, L"%d UUID: %s\n", b, uuidd.c_str());
+    OutputDebugString(a);*/
 
-    finalDic.SetString("#uuid", ta_cpp_helper::getEventID());
+    // finalDic.SetString("#uuid", ta_cpp_helper::getEventID());
     
     if (account_id_.size()>0) {
         finalDic.SetString("#account_id", account_id_);
@@ -270,6 +299,8 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
 
     if (distinct_id_.size()>0) {
         finalDic.SetString("#distinct_id", distinct_id_);
+    }else {
+        finalDic.SetString("#distinct_id", ta_cpp_helper::getDeviceID());
     }
     
     
@@ -281,9 +312,10 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
     if (isTrackEvent && event_name.size()>0) {
         finalDic.SetString("#event_name", event_name);
     }
+   
     
     if (isTrackEvent) {
-        // 预制属性
+
         propertyDic.SetString("#lib_version", TD_LIB_VERSION);
 		
         #if defined(_WIN32)
@@ -298,20 +330,13 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
     propertyDic.MergeFrom(properties);
     finalDic.SetObject("properties", propertyDic);
 
+    func  callback = fun;
+   
     const string json_record = TDJSONObject::ToJson(finalDic);
-    shared_ptr<TAITask> task(new TASqiteInsetTask(*m_sqlite, json_record, appid_, enableLog));
+    shared_ptr<TAITask> task(new TASqiteInsetTask(*httpSend_,*m_sqlite, json_record, appid_, enableLog, callback));
+
     ThinkingdataTask::getMDataTaskQue()->PushTask(task);
-
-    long messageCount = m_sqlite->getAllmessageCount(appid_);
-
-    if (enableLog == true) {
-        printf("\n[thinkingdata] messageCount: %ld\n", messageCount);
-    }
-
-    if(messageCount >= 30) {
-        shared_ptr<TAITask> networkTask(new TANetworkTask(*m_sqlite, *httpSend_, appid_, enableLog));
-        ThinkingdataTask::getMNetworkTaskQue()->PushTask(networkTask);
-    }
+    
     return true;
 }
 
@@ -322,6 +347,7 @@ void ThinkingAnalyticsAPI::InnerFlush() {
 
 void ThinkingAnalyticsAPI::Flush() {
     if (instance_) {
+        _flush = true;
         instance_->InnerFlush();
     }
 }
@@ -470,13 +496,40 @@ string ThinkingAnalyticsAPI::StagingFilePath() {
 
 ThinkingAnalyticsAPI::ThinkingAnalyticsAPI(const string &server_url,
                                            const string &appid)
-: httpSend_(new TAHttpSend(server_url, appid)) {}
-
-ThinkingAnalyticsAPI::~ThinkingAnalyticsAPI() {
-    if (httpSend_ != NULL) {
-        delete httpSend_;
-        httpSend_ = NULL;
-    }
+: httpSend_(new TAHttpSend(server_url, appid)) {
+    srand(unsigned(time(NULL)));
 }
 
+ThinkingAnalyticsAPI::~ThinkingAnalyticsAPI() {
+   
+}
+
+void ThinkingAnalyticsAPI::Unint()
+{
+    if (instance_)
+    {
+        if (instance_->httpSend_ != NULL) {
+            delete instance_->httpSend_;
+            instance_->httpSend_ = NULL;
+        }
+
+        if (instance_->m_sqlite) {
+            instance_->m_sqlite->isStop = true;
+            instance_->m_sqlite->unInit();
+            delete instance_->m_sqlite;
+            instance_->m_sqlite = NULL;
+        }
+
+        if (instance_->m_superProperties != NULL) {
+            delete instance_->m_superProperties;
+            instance_->m_superProperties = NULL;
+        }
+
+        delete ThinkingdataTask::getMDataTaskQue();
+        delete ThinkingdataTask::getMNetworkTaskQue();
+
+        delete instance_;
+        instance_ = NULL;
+    }
+}
 }

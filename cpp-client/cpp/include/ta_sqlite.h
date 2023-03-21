@@ -19,11 +19,14 @@ namespace thinkingdata {
 
     class TASqliteDataQueue  {
     public:
+        bool isStop;
+        sqlite3* ta_database;
         TASqliteDataQueue(string appid);
         int addObject(string event, string appid);
         vector<tuple<string, string>> getFirstRecords(int recordSize, string appid);
         bool removeData(vector<string> uuids);
         long getAllmessageCount(string appid);
+        void unInit();
     private:
         long m_allmessagecount;
         const string dataBaseFilePath = "TDData-data.db";

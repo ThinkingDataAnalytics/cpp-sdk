@@ -19,9 +19,9 @@ namespace thinkingdata {
             : server_url_(server_url), appid_(appid) {
 
         if (server_url_[strlen(server_url_.c_str()) - 1] == '/') {
-            server_url_ = server_url_ + "sync";
+            server_url_ = string(server_url_ + "sync");
         } else {
-            server_url_ = server_url_ + "/sync";
+            server_url_ = string(server_url_ + "/sync");
         }
     }
 
@@ -151,8 +151,14 @@ namespace thinkingdata {
         std::vector <std::pair<string, string>> http_headers;
         bool send_result = sender_->send(json_record);
 
+
+    /*    int b = 123;
+        wchar_t a[MAX_PATH] = { 0 };
+        wsprintf(a, L"%d UUID: %s\n", b, json_record.c_str());
+        OutputDebugString(a);*/
+
         if (enable_log_) {
-            printf("\n[thinkingdata] flush suceess: %s\n", json_record.c_str());
+            printf("\n[ThinkingEngine] flush suceess: %s\n", json_record.c_str());
         }
         return send_result;
     }
@@ -162,12 +168,12 @@ namespace thinkingdata {
     }
 
     TAHttpSend::~TAHttpSend() {
+        if (sender_)
+            delete sender_;
     }
-
 
     void TAHttpSend::Init() {
         TD_MUTEX_INIT(&records_mutex_);
         TD_MUTEX_INIT(&sending_mutex_);
     }
-
 };

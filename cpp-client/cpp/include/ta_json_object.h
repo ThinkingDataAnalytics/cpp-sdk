@@ -41,7 +41,6 @@ namespace thinkingdata {
         void SetDateTime(const string &property_name, time_t seconds,
                          int milliseconds);
 
-        // 字符串格式需要是: 2018-09-07 16:30:22.567
         void SetDateTime(const string &property_name, const string &value);
 
         void Clear();
