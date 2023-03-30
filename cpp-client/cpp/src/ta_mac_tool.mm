@@ -15,7 +15,7 @@ void thinkingdata::ta_mac_tool::updateSuperproperty(const char *token, const cha
 void thinkingdata::ta_mac_tool::updateAccount(const char *token, const char *accountId)
 {
     [[NSUserDefaults standardUserDefaults] setObject:[NSString stringWithUTF8String:accountId]
-                                              forKey:[NSString stringWithFormat:@"td-accountid-%@", [NSString stringWithUTF8String:token]]];
+                                              forKey:[NSString stringWithFormat:@"td-accountId-%@", [NSString stringWithUTF8String:token]]];
     [[NSUserDefaults standardUserDefaults] synchronize];
 }
 
@@ -26,7 +26,7 @@ void thinkingdata::ta_mac_tool::updateDistinctId(const char *token, const char *
 }
 
 const char * thinkingdata::ta_mac_tool::loadAccount(const char *token) {
-    return [[[NSUserDefaults standardUserDefaults] objectForKey:[NSString stringWithFormat:@"td-accountid-%@", [NSString stringWithUTF8String:token]]] UTF8String];
+    return [[[NSUserDefaults standardUserDefaults] objectForKey:[NSString stringWithFormat:@"td-accountId-%@", [NSString stringWithUTF8String:token]]] UTF8String];
 }
 const char * thinkingdata::ta_mac_tool::loadDistinctId(const char *token) {
     return [[[NSUserDefaults standardUserDefaults] objectForKey:[NSString stringWithFormat:@"td-distinctId-%@", [NSString stringWithUTF8String:token]]] UTF8String];

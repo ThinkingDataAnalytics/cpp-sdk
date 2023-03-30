@@ -25,7 +25,7 @@ namespace thinkingdata {
         int addObject(string event, string appid);
         vector<tuple<string, string>> getFirstRecords(int recordSize, string appid);
         bool removeData(vector<string> uuids);
-        long getAllmessageCount(string appid);
+        long getAllMessageCount(string appid);
         void unInit();
     private:
         long m_allmessagecount;

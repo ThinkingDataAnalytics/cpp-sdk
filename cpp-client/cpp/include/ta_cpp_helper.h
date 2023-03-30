@@ -48,6 +48,6 @@ namespace thinkingdata {
 
         static void updateSuperProperty(const char *token, const char *superproperty, const char *path = "");
         static string loadSuperProperty(const char *token, const char *path = "");
-        
+
     };
 }

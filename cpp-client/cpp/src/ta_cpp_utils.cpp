@@ -4,7 +4,29 @@
 #include <iostream>
 #include <iomanip>
 
+#if defined(_WIN32) && defined(_MSC_VER)
+#include <atlstr.h>
+#endif
+
+
 namespace thinkingdata {
+
+    static bool _taEnableLog;
+    //mutex ta_enable_log_mutex;
+    bool thinkingdata::TAEnableLog::getEnableLog() {
+//        bool _ta_enable_log = false;
+//        ta_enable_log_mutex.lock();
+//        _ta_enable_log = TAEnableLog::taEnableLog;
+//        ta_enable_log_mutex.unlock();
+        return _taEnableLog;
+    }
+    void thinkingdata::TAEnableLog::setEnableLog(bool enableLog) {
+        _taEnableLog = enableLog;
+//        ta_enable_log_mutex.lock();
+//        TAEnableLog::taEnableLog == enableLog;
+//        ta_enable_log_mutex.unlock();
+
+    }
 
 vector<string> Split(const string &str, const string &pattern) {
   vector<string> res;
@@ -162,5 +184,80 @@ string Splice(const vector<string> &array, const string &pattern) {
   result += end;
   return result;
 }
+
+bool CheckUtf8Valid(const string& str) {
+    const unsigned char* bytes = (const unsigned char*)str.data();
+    const unsigned char* begin = bytes;
+    while (bytes - begin < (int)str.length()) {
+        if ((bytes[0] == 0x09 || bytes[0] == 0x0A || bytes[0] == 0x0D ||
+            (0x20 <= bytes[0] && bytes[0] <= 0x7E))) {
+            bytes += 1;
+            continue;
+        }
+        if (((0xC2 <= bytes[0] && bytes[0] <= 0xDF)
+            && (0x80 <= bytes[1] && bytes[1] <= 0xBF))) {
+            bytes += 2;
+            continue;
+        }
+        if ((bytes[0] == 0xE0 && (0xA0 <= bytes[1] && bytes[1] <= 0xBF) &&
+            (0x80 <= bytes[2] && bytes[2] <= 0xBF)) ||
+            (((0xE1 <= bytes[0] && bytes[0] <= 0xEC) || bytes[0] == 0xEE
+                || bytes[0] == 0xEF) &&
+                (0x80 <= bytes[1] && bytes[1] <= 0xBF)
+                && (0x80 <= bytes[2] && bytes[2] <= 0xBF)) ||
+            (bytes[0] == 0xED && (0x80 <= bytes[1] && bytes[1] <= 0x9F) &&
+                (0x80 <= bytes[2] && bytes[2] <= 0xBF))) {
+            bytes += 3;
+            continue;
+        }
+        if ((bytes[0] == 0xF0 && (0x90 <= bytes[1] && bytes[1] <= 0xBF) &&
+            (0x80 <= bytes[2] && bytes[2] <= 0xBF) &&
+            (0x80 <= bytes[3] && bytes[3] <= 0xBF)) ||
+            ((0xF1 <= bytes[0] && bytes[0] <= 0xF3)
+                && (0x80 <= bytes[1] && bytes[1] <= 0xBF) &&
+                (0x80 <= bytes[2] && bytes[2] <= 0xBF)
+                && (0x80 <= bytes[3] && bytes[3] <= 0xBF)) ||
+            (bytes[0] == 0xF4 && (0x80 <= bytes[1] && bytes[1] <= 0x8F) &&
+                (0x80 <= bytes[2] && bytes[2] <= 0xBF) &&
+                (0x80 <= bytes[3] && bytes[3] <= 0xBF))) {
+            bytes += 4;
+            continue;
+        }
+        return false;
+    }
+    return bytes - begin == str.length();
+}
+
+#if defined(_WIN32) && defined(_MSC_VER)
+char* G2U(const char* gb2312)
+{
+    int len = MultiByteToWideChar(CP_ACP, 0, gb2312, -1, NULL, 0);
+    wchar_t* wstr = new wchar_t[len + 1];
+    memset(wstr, 0, len + 1);
+    MultiByteToWideChar(CP_ACP, 0, gb2312, -1, wstr, len);
+    len = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
+    char* str = new char[len + 1];
+    memset(str, 0, len + 1);
+    WideCharToMultiByte(CP_UTF8, 0, wstr, -1, str, len, NULL, NULL);
+    if (wstr) delete[] wstr;
+    return str;
+
+}
+
+char* U2G(const char* utf8)
+{
+    int len = MultiByteToWideChar(CP_UTF8, 0, utf8, -1, NULL, 0);
+    wchar_t* wstr = new wchar_t[len + 1];
+    memset(wstr, 0, len + 1);
+    MultiByteToWideChar(CP_UTF8, 0, utf8, -1, wstr, len);
+    len = WideCharToMultiByte(CP_ACP, 0, wstr, -1, NULL, 0, NULL, NULL);
+    char* str = new char[len + 1];
+    memset(str, 0, len + 1);
+    WideCharToMultiByte(CP_ACP, 0, wstr, -1, str, len, NULL, NULL);
+    if (wstr) delete[] wstr;
+    return str;
+}
+#endif
+
 
 }

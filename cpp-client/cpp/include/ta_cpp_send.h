@@ -89,10 +89,6 @@ namespace thinkingdata {
 
         bool Send(const TDJSONObject &record);
 
-        void EnableLog(bool enable_log);
-
-        bool enable_log_;
-
         ~TAHttpSend();
 
     private:

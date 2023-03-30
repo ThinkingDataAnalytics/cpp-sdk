@@ -55,8 +55,9 @@ namespace thinkingdata {
 
         static void DumpNode(const TDJSONObject &node, string *buffer);
 
-        void MergeFrom(const TDJSONObject &another_node);
+        static void UnInit(TDJSONObject* node);
 
+        void MergeFrom(const TDJSONObject &another_node);
 
         enum ValueNodeType {
             NUMBER,
@@ -91,7 +92,12 @@ namespace thinkingdata {
 
         ValueNode(time_t seconds, int milliseconds);
 
-        static void ToStr(const ValueNode &node, string *buffer);
+        static void JsonNodeToString(const ValueNode &node, string *buffer);
+
+
+        ValueNodeType node_type_;
+        std::vector<TDJSONObject> list_obj_;
+        TDJSONObject object_data_;
 
     private:
         static void DumpString(const string &value, string *buffer);
@@ -107,9 +113,6 @@ namespace thinkingdata {
 
         static void DumpNumber(int64_t value, string *buffer);
 
-
-        ValueNodeType node_type_;
-
         union UnionValue {
             double number_value;
             bool bool_value;
@@ -124,8 +127,7 @@ namespace thinkingdata {
 
         string string_data_;
         std::vector<string> list_data_;
-        std::vector<TDJSONObject> list_obj_;
-        TDJSONObject object_data_;
+       
     };
 };
 

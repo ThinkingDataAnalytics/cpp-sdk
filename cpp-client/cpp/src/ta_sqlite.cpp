@@ -9,11 +9,13 @@
 #include<string>
 #include<iostream>
 #include <sys/timeb.h>
+#include "ta_cpp_utils.h"
 
 namespace thinkingdata {
 
     using namespace std;
     using std::tuple;
+    char* G2U(const char* gb2312);
 
     TASqliteDataQueue::TASqliteDataQueue(std::string appid): m_appid(appid), m_allmessagecount(0) {
 
@@ -21,11 +23,15 @@ namespace thinkingdata {
         int openDBStatus = sqlite3_open(dataBaseFilePath.c_str(), &ta_database);
         if (openDBStatus)
         {
-            fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(ta_database));
+            if (TAEnableLog::getEnableLog()) {
+                cout << "\n[ThinkingEngine]  Can't open database: " << sqlite3_errmsg(ta_database) << endl;
+            }
         }
         else
         {
-            fprintf(stdout, "Opened database successfully\n");
+            if (TAEnableLog::getEnableLog()) {
+                cout << "\n[ThinkingEngine]  Opened database successfully " << endl;
+            }
         }
 
         try
@@ -37,12 +43,16 @@ namespace thinkingdata {
             int createDataTable = sqlite3_exec(ta_database, dataTable.c_str(), NULL, NULL, &createDataTableErrMsg);
             if (createDataTable != SQLITE_OK)
             {
-                fprintf(stderr, "SQL error: %s\n", createDataTableErrMsg);
+                if (TAEnableLog::getEnableLog()) {
+                    cout << "\n[ThinkingEngine]  SQL error: " << createDataTableErrMsg << endl;
+                }
                 sqlite3_free(createDataTableErrMsg);
             }
             else
             {
-                fprintf(stdout, "Table created successfully\n");
+                if (TAEnableLog::getEnableLog()) {
+                    cout << "\n[ThinkingEngine]  Table created successfully" << endl;
+                }
 
                 // allmessageCount
                 m_allmessagecount = sqliteCount(appid);
@@ -67,11 +77,10 @@ namespace thinkingdata {
             query = "select count(*) from TDData where appid=? ";
         }
 
+        sqlite3_stmt* stmt = NULL;
         try
         {
-            sqlite3_stmt* stmt = NULL;
             int rc = sqlite3_prepare_v2(ta_database, query.c_str(), -1, &stmt, NULL);
-
             if (rc == SQLITE_OK) {
                 if (appid.empty() == false) {
                     sqlite3_bind_text(stmt, 1, appid.c_str(), -1, SQLITE_TRANSIENT);
@@ -84,8 +93,11 @@ namespace thinkingdata {
         }
         catch (const std::exception&)
         {
-
+            if (stmt != NULL) {
+                sqlite3_finalize(stmt);
+            }
         }
+
         return count;
     }
 
@@ -99,6 +111,7 @@ namespace thinkingdata {
             return sqliteCount(appid);
         }
 
+        sqlite3_stmt* insertStatement = NULL;
         try
         {
             timeb t;
@@ -109,11 +122,23 @@ namespace thinkingdata {
             ta_index++;
             replace(uuid.begin(), uuid.end(), '-', 'a');
             string query = "INSERT INTO TDData(content, appid, creatAt, uuid) values(?, ?, ?, ?)";
-            sqlite3_stmt* insertStatement;
             int rc;
+       
             rc = sqlite3_prepare_v2(ta_database, query.c_str(), -1, &insertStatement, NULL);
             if (rc == SQLITE_OK) {
+#if defined(_WIN32) && defined(_MSC_VER)
+                if (!CheckUtf8Valid(event.c_str())) {
+                    char* str = G2U(event.c_str());
+                    string tmpStr = string(str);
+                    sqlite3_bind_text(insertStatement, 1, tmpStr.c_str(), -1, SQLITE_TRANSIENT);
+                    delete str;
+                }
+                else {
+                    sqlite3_bind_text(insertStatement, 1, event.c_str(), -1, SQLITE_TRANSIENT);
+                }  
+#else
                 sqlite3_bind_text(insertStatement, 1, event.c_str(), -1, SQLITE_TRANSIENT);
+#endif
                 sqlite3_bind_text(insertStatement, 2, appid.c_str(), -1, SQLITE_TRANSIENT);
                 sqlite3_bind_int(insertStatement, 3, epochInterval);
                 sqlite3_bind_text(insertStatement, 4, uuid.c_str(), -1, SQLITE_TRANSIENT);
@@ -123,28 +148,27 @@ namespace thinkingdata {
                     m_allmessagecount = m_allmessagecount + 1;
                 }
             }
-
             sqlite3_finalize(insertStatement);
+        } catch (const std::exception&) {
+            if (insertStatement != NULL) {
+                sqlite3_finalize(insertStatement);
+            }
         }
-        catch (const std::exception&)
-        {
-
-        }
-
         return sqliteCount(appid);
     }
-
+   
     vector<tuple<string, string>> TASqliteDataQueue::getFirstRecords(int recordSize, string appid){
 
         vector<tuple<string, string>> records;
         if (isStop) {
             return records;
         }
+        sqlite3_stmt* stmt = NULL;
         try
         {
             if (m_allmessagecount == 0) return records;
             string query = "SELECT id,content,uuid FROM TDData where appid=? ORDER BY id ASC LIMIT ?";
-            sqlite3_stmt* stmt = NULL;
+            
             int rc = sqlite3_prepare_v2(ta_database, query.c_str(), -1, &stmt, NULL);
             if (rc == SQLITE_OK) {
                 sqlite3_bind_text(stmt, 1, appid.c_str(), -1, SQLITE_TRANSIENT);
@@ -163,8 +187,11 @@ namespace thinkingdata {
         }
         catch (const std::exception&)
         {
-
+            if (stmt != NULL) {
+                sqlite3_finalize(stmt);
+            }
         }
+    
         return records;
     }
 
@@ -175,6 +202,7 @@ namespace thinkingdata {
         }
         if (uuids.empty() == true) return false;
 
+        sqlite3_stmt* stmt = NULL;
         try
         {
             string strData;
@@ -184,18 +212,18 @@ namespace thinkingdata {
             }
             strData = strData.substr(0, strData.size() - 1);
             string query = "DELETE FROM TDData WHERE uuid IN (" + strData + ");";
-            sqlite3_stmt* stmt;
+            
 
             if (sqlite3_prepare_v2(ta_database, query.c_str(), -1, &stmt, NULL) != SQLITE_OK) {
-                string errorstring = string("Delete records Error: ") + string(sqlite3_errmsg(ta_database));
-                fprintf(stdout, errorstring.c_str());
+                string errorString = string("Delete records Error: ") + string(sqlite3_errmsg(ta_database));
+                fprintf(stdout, errorString.c_str());
                 sqlite3_finalize(stmt);
                 return false;
             }
             bool success = true;
             if (sqlite3_step(stmt) != SQLITE_DONE) {
-                string errorstring = string("Delete records Error: ") + string(sqlite3_errmsg(ta_database));
-                fprintf(stdout, errorstring.c_str());
+                string errorString = string("Delete records Error: ") + string(sqlite3_errmsg(ta_database));
+                fprintf(stdout, errorString.c_str());
                 success = false;
             }
             sqlite3_finalize(stmt);
@@ -203,12 +231,14 @@ namespace thinkingdata {
         }
         catch (const std::exception&)
         {
-
+            if (stmt != NULL) {
+                sqlite3_finalize(stmt);
+            }
         }
         return true;
     }
 
-    long  TASqliteDataQueue::getAllmessageCount(string appid){
+    long  TASqliteDataQueue::getAllMessageCount(string appid){
         return m_allmessagecount;
     }
 

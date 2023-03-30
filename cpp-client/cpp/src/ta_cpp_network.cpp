@@ -111,6 +111,8 @@ Response Connection::PerformCurlRequest(const string &uri) {
   CURLcode res;
   curl_slist *header_list = NULL;
 
+  curl_easy_setopt(this->curl_handle_, CURLOPT_SSL_VERIFYPEER,
+      false);
   /** set query URL */
   curl_easy_setopt(this->curl_handle_, CURLOPT_URL, url.c_str());
   /** set callback function */
@@ -271,7 +273,7 @@ Response Post(const string &url, const string &data, int timeout_second) {
     std::pair<string, string> item1;
     std::pair<string, string> item2;
     item1.first = "Content-Type";
-    item1.second = "text/plain";
+    item1.second = "text/plain;charset=UTF-8";
     
     item2.first = "Accept-Encoding";
     item2.second = "gzip, deflate, br";

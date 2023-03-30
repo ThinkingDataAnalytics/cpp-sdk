@@ -8,6 +8,7 @@
 #include <curl/curl.h>
 #include <zlib.h>
 #include "ta_json_object.h"
+#include "ta_cpp_utils.h"
 
 
 namespace thinkingdata {
@@ -128,7 +129,8 @@ namespace thinkingdata {
         return ret;
     }
 
-    bool HttpSender::encodeToRequestBody(const string &data, string *request_body) {
+    bool HttpSender::encodeToRequestBody(const string & data, string *request_body) {
+
         string compressed_data;
         if (!gzipString(data, &compressed_data)) {
             return false;
@@ -138,10 +140,10 @@ namespace thinkingdata {
         return true;
     }
 
+
     TAHttpSend::TAHttpSend(const string &server_url,
                                      const string &appid)
-            : enable_log_(false),
-              sender_(new HttpSender(server_url, appid)) {}
+            : sender_(new HttpSender(server_url, appid)) {}
 
     bool TAHttpSend::Send(const TDJSONObject &record) {
         const string json_record = TDJSONObject::ToJson(record);
@@ -157,14 +159,10 @@ namespace thinkingdata {
         wsprintf(a, L"%d UUID: %s\n", b, json_record.c_str());
         OutputDebugString(a);*/
 
-        if (enable_log_) {
-            printf("\n[ThinkingEngine] flush suceess: %s\n", json_record.c_str());
+        if (TAEnableLog::getEnableLog()) {
+            cout << "\n[thinkingdata] flush suceess: " << json_record << endl;
         }
         return send_result;
-    }
-
-    void TAHttpSend::EnableLog(bool enable_log) {
-        enable_log_ = enable_log;
     }
 
     TAHttpSend::~TAHttpSend() {

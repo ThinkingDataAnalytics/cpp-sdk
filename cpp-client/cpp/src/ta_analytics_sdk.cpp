@@ -1,35 +1,24 @@
 #include "ta_analytics_sdk.h"
-#include "ta_cpp_network.h"
 #include "ta_json_object.h"
 #include "ta_cpp_send.h"
 #include "ta_cJSON.h"
-
-#include <algorithm>
-#include <cctype>
-#include <fstream>
 #include <functional>
-#include <iomanip>
 #include <iostream>
-#include <sstream>
 #include <utility>
 #include <sys/timeb.h>
+#include "ta_cpp_helper.h"
+#include "ta_event_task.h"
+#include "ta_sqlite.h"
+#include "ta_cpp_utils.h"
 
 #if defined(_WIN32)
 #include <windows.h>
 #include <iostream>
 #include <fstream>
 #else
-
 #include <pthread.h>
 #include <sys/time.h>
-
 #endif
-
-#include "ta_cpp_helper.h"
-#include "ta_timer.h"
-#include "ta_event_task.h"
-#include "ta_sqlite.h"
-#include "ta_cJSON.h"
 
 const static string TD_EVENT_TYPE                 = "track";
 const static string TD_EVENT_TYPE_TRACK_FIRST     = "track_first";
@@ -46,14 +35,12 @@ const static string TD_EVENT_TYPE_USER_APPEND     = "user_append";
 
 namespace thinkingdata {
 
-    typedef void (*func)(int x);
-    bool  _flush;
+    mutex ta_superProperty_mtx;
 
 
+void taCJsonToTDJson(tacJSON *myjson, TDJSONObject &property);
 
-void myToTDJSON(tacJSON *myjson, TDJSONObject &ppp);
-
-void myArrToTDJSON(tacJSON *myjson, TDJSONObject &ppp) {
+void taCJsonArrayToTDJsonArray(tacJSON *myjson, TDJSONObject &property) {
     tacJSON *child = myjson->child;
     if (child->type == tacJSON_String) {
         vector<string> objs = vector<string>();
@@ -62,68 +49,67 @@ void myArrToTDJSON(tacJSON *myjson, TDJSONObject &ppp) {
             objs.push_back(obj->valuestring);
             obj = obj->next;
         }
-        ppp.SetList(myjson->string, objs);
+        property.SetList(myjson->string, objs);
     } else if (child->type == tacJSON_Object) {
 
         vector<TDJSONObject> objs = vector<TDJSONObject>();
         tacJSON* obj = child;
         while (obj != nullptr) {
-            TDJSONObject *ojjjc = new TDJSONObject();
-            myToTDJSON(obj, *ojjjc);
-            objs.push_back(*ojjjc);
+            TDJSONObject _obj;
+            taCJsonToTDJson(obj, _obj);
+            objs.push_back(_obj);
             obj = obj->next;
         }
-        ppp.SetList(myjson->string, objs);
+        property.SetList(myjson->string, objs);
     }
 }
 
-void myToTDJSON(tacJSON *myjson, TDJSONObject &ppp) {
+void taCJsonToTDJson(tacJSON *myjson, TDJSONObject &property) {
     tacJSON* obj = myjson->child;
     while (obj != nullptr) {
         if (obj->type == tacJSON_String) {
-            ppp.SetString(obj->string,obj->valuestring);
+            property.SetString(obj->string,obj->valuestring);
         } else if (obj->type == tacJSON_False) {
-            ppp.SetBool(obj->string, false);
+            property.SetBool(obj->string, false);
         } else if (obj->type == tacJSON_True) {
-            ppp.SetBool(obj->string, true);
+            property.SetBool(obj->string, true);
         } else if (obj->type == tacJSON_Number) {
-            ppp.SetNumber(obj->string, obj->valuedouble);
+            property.SetNumber(obj->string, obj->valuedouble);
         } else if (obj->type == tacJSON_Object) {
-            TDJSONObject *ojjjc = new TDJSONObject();
-            myToTDJSON(obj, *ojjjc);
-            ppp.SetObject(obj->string, *ojjjc);
+            TDJSONObject _obj;
+            taCJsonToTDJson(obj, _obj);
+            property.SetObject(obj->string, _obj);
         } else if (obj->type == tacJSON_Array) {
-            myArrToTDJSON(obj, ppp);
+            taCJsonArrayToTDJsonArray(obj, property);
         }
         obj = obj->next;
     }
 }
 
-ThinkingAnalyticsEvent::ThinkingAnalyticsEvent(string eventName, TDJSONObject properties) {
+ThinkingAnalyticsEvent::ThinkingAnalyticsEvent(const string &eventName, const TDJSONObject& properties) {
     this->mEventName = eventName;
     this->mProperties = properties;
 }
-TDFirstEvent::TDFirstEvent(string eventName, TDJSONObject properties):ThinkingAnalyticsEvent(eventName,properties) {
+TDFirstEvent::TDFirstEvent(const string & eventName, const TDJSONObject & properties):ThinkingAnalyticsEvent(eventName,properties) {
     this->mType = FIRST;
     this->mExtraId = "";
 }
 
-void TDFirstEvent::setFirstCheckId(string firstCheckId) {
+void TDFirstEvent::setFirstCheckId(const string & firstCheckId) {
     this->mExtraId = firstCheckId;
 }
-TDUpdatableEvent::TDUpdatableEvent(string eventName, TDJSONObject properties, string eventId):ThinkingAnalyticsEvent(eventName,properties) {
+TDUpdatableEvent::TDUpdatableEvent(const string & eventName, const TDJSONObject & properties, const string & eventId):ThinkingAnalyticsEvent(eventName,properties) {
     this->mExtraId = eventId;
     this->mType = UPDATABLE;
 }
-TDOverWritableEvent::TDOverWritableEvent(string eventName, TDJSONObject properties, string eventId):ThinkingAnalyticsEvent(eventName,properties) {
+TDOverWritableEvent::TDOverWritableEvent(const string & eventName, const TDJSONObject & properties, const string & eventId):ThinkingAnalyticsEvent(eventName,properties) {
     this->mExtraId = eventId;
     this->mType = OVERWRITABLE;
 }
 
 
 
-void
-TDJSONObject::ValueNode::ToStr(const TDJSONObject::ValueNode &node,
+void TDJSONObject::ValueNode::JsonNodeToString(const TDJSONObject::ValueNode &node,
                                       string *buffer) {
     switch (node.node_type_) {
         case NUMBER:
@@ -172,74 +158,61 @@ void TDJSONObject::ValueNode::DumpNumber(int64_t value, string *buffer) {
 
 ThinkingAnalyticsAPI *ThinkingAnalyticsAPI::instance_ = NULL;
 
-void fun(int num)
-{
-    srand((unsigned)time(NULL));
-    if (_flush || num >= 10)
-    {
-        if (ThinkingAnalyticsAPI::instance_ != NULL)
-        {
-            ThinkingAnalyticsAPI::instance_->Flush();
-            _flush = false;
-        }
-    }
-}
-
 bool ThinkingAnalyticsAPI::Init(const string &server_url,
                                 const string &appid) {
-    string oldsuperpstring;
+
 
     if (!instance_) {
         string data_file_path = "";
+
+        // init TA instance
         instance_ = new ThinkingAnalyticsAPI(server_url, appid);
-       instance_->httpSend_->Init();
-       
-        srand((unsigned)time(NULL));
-        
-        instance_->distinct_id_ = ta_cpp_helper::getDeviceID();
-        instance_->account_id_ = "";
-        
-        string accountid = ta_cpp_helper::loadAccount(appid.c_str(), data_file_path.c_str());
-        string distinctid = ta_cpp_helper::loadDistinctId(appid.c_str(), data_file_path.c_str());
-
-        oldsuperpstring = ta_cpp_helper::loadSuperProperty(appid.c_str(), data_file_path.c_str());
-        tacJSON* root_obj = NULL;
-        TDJSONObject *superProperties = new TDJSONObject();
-        if(oldsuperpstring.empty() != true) {
-            root_obj = tacJSON_Parse(oldsuperpstring.c_str());
-            if (root_obj->type == tacJSON_Object) {
-                myToTDJSON(root_obj, *superProperties);
-            }
-        }
-        instance_->m_superProperties = superProperties;
-
-  
-        if (accountid.length() != 0) {
-            instance_->account_id_ = accountid;
-        }
-        if (distinctid.size() != 0) {
-            instance_->distinct_id_ = distinctid;
-        }
-        
         instance_->appid_ = appid;
         instance_->server_url_ = server_url;
-        
-     
+        instance_->httpSend_->Init();
         instance_->m_sqlite = new TASqliteDataQueue(appid);
-      
 
-        printf("\n[ThinkingEngine] Info: ThinkingEngine SDK initialize success, AppId = %s, ServerUrl = %s, Mode = Normal, DeviceId = xxx\n", appid.c_str(), server_url.c_str(), ta_cpp_helper::getDeviceID().c_str());
+        // get local data
+        string accountId = ta_cpp_helper::loadAccount(appid.c_str(), data_file_path.c_str());
+        string distinctId = ta_cpp_helper::loadDistinctId(appid.c_str(), data_file_path.c_str());
+        string deviceId = ta_cpp_helper::getDeviceID();
+        string oldSuperPropertyString = ta_cpp_helper::loadSuperProperty(appid.c_str(), data_file_path.c_str());
+
+        if (accountId.length() != 0)  {
+            instance_->account_id_ = accountId;
+        }
+
+        if (distinctId.size() != 0)  {
+            instance_->distinct_id_ = distinctId;
+        } else {
+            instance_->distinct_id_ = deviceId;
+        }
+
+        if (deviceId.size() != 0) {
+            instance_->device_id_ = deviceId;
+        }
+
+        
+
+        tacJSON* root_obj = NULL;
+        if(oldSuperPropertyString.empty() != true) {
+            root_obj = tacJSON_Parse(oldSuperPropertyString.c_str());
+            if (root_obj->type == tacJSON_Object) {
+                taCJsonToTDJson(root_obj, instance_->m_superProperties);
+            }
+        }
+        tacJSON_Delete(root_obj);
+
+        if (TAEnableLog::getEnableLog()) {
+            cout << "\n[ThinkingEngine] ThinkingEngine SDK initialize success, AppId:  "<< appid.c_str() << ", ServerUrl: " << server_url.c_str() << ", DeviceId: " <<  ta_cpp_helper::getDeviceID().c_str() << endl;
+        }
     }
 
     return true;
 }
 
 void ThinkingAnalyticsAPI::EnableLog(bool enable) {
-
-    if (instance_ != nullptr) {
-        instance_->enableLog = enable;
-        instance_->httpSend_->EnableLog(enable);
-    }
+    TAEnableLog::setEnableLog(enable);
 }
 
 void ThinkingAnalyticsAPI::AddUser(string eventType, const TDJSONObject &properties)
@@ -254,42 +227,37 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
                                     const string &firstCheckID,
                                     const string &eventID) {
 
-   
     TDJSONObject flushDic;
     TDJSONObject finalDic;
     TDJSONObject propertyDic;
-    
-    string first_check_id = firstCheckID;
+
     string eventType = action_type;
     string event_id = eventID;
-    
+
     bool isTrackEvent = (eventType == TD_EVENT_TYPE || eventType == TD_EVENT_TYPE_TRACK_FIRST || eventType == TD_EVENT_TYPE_TRACK_UPDATE || eventType == TD_EVENT_TYPE_TRACK_OVERWRITE);
 
     if (isTrackEvent) {
-        propertyDic.MergeFrom(*m_superProperties);
+        ta_superProperty_mtx.lock();
+        propertyDic.MergeFrom(m_superProperties);
+        ta_superProperty_mtx.unlock();
     }
 
-    if (isTrackEvent && eventType == TD_EVENT_TYPE_TRACK_FIRST) {
+    if (eventType == TD_EVENT_TYPE_TRACK_FIRST) {
         eventType = TD_EVENT_TYPE;
-        char *firstCheckIDString = (char *)firstCheckID.data();
-        if (string(firstCheckIDString).size() == 0) {
-            finalDic.SetString("#first_check_id", ta_cpp_helper::getDeviceID().c_str());
+        if (firstCheckID.size() > 0) {
+            finalDic.SetString("#first_check_id", firstCheckID);
         } else {
-            finalDic.SetString("#first_check_id", firstCheckIDString);
+            finalDic.SetString("#first_check_id", ta_cpp_helper::getDeviceID().c_str());
         }
-    } else if (isTrackEvent && (eventType == TD_EVENT_TYPE_TRACK_UPDATE || eventType == TD_EVENT_TYPE_TRACK_OVERWRITE)) {
-        finalDic.SetString("#event_id", event_id);
+    } else if (eventType == TD_EVENT_TYPE_TRACK_UPDATE || eventType == TD_EVENT_TYPE_TRACK_OVERWRITE) {
+        if (event_id.size() > 0) {
+            finalDic.SetString("#event_id", event_id);
+        }
     }
 
     timeb t;
     ftime(&t);
     finalDic.SetDateTime("#time", t.time, t.millitm);
-    
-  /*  string uuidd = string();
-    int b = 123;
-    wchar_t a[MAX_PATH] = { 0 };
-    wsprintf(a, L"%d UUID: %s\n", b, uuidd.c_str());
-    OutputDebugString(a);*/
 
     // finalDic.SetString("#uuid", ta_cpp_helper::getEventID());
     
@@ -299,55 +267,45 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
 
     if (distinct_id_.size()>0) {
         finalDic.SetString("#distinct_id", distinct_id_);
-    }else {
-        finalDic.SetString("#distinct_id", ta_cpp_helper::getDeviceID());
     }
-    
-    
+
     if (eventType.size()>0) {
-        finalDic.SetString("#type", (char*)eventType.c_str());
+        finalDic.SetString("#type", eventType);
     }
-    
-   
+
     if (isTrackEvent && event_name.size()>0) {
         finalDic.SetString("#event_name", event_name);
     }
-   
-    
-    if (isTrackEvent) {
 
+    if (isTrackEvent) {
         propertyDic.SetString("#lib_version", TD_LIB_VERSION);
-		
-        #if defined(_WIN32)
-        propertyDic.SetString("#os", "Windows");
-        #elif defined(__APPLE__)
-        propertyDic.SetString("#os", "Mac");
-        #endif
         propertyDic.SetString("#device_id", ta_cpp_helper::getDeviceID());
-		propertyDic.SetString("#lib", TD_LIB_NAME);
+        propertyDic.SetString("#lib", TD_LIB_NAME);
+
+        #if defined(_WIN32)
+            propertyDic.SetString("#os", "Windows");
+        #elif defined(__APPLE__)
+            propertyDic.SetString("#os", "Mac");
+        #endif
     }
     
     propertyDic.MergeFrom(properties);
     finalDic.SetObject("properties", propertyDic);
-
-    func  callback = fun;
    
     const string json_record = TDJSONObject::ToJson(finalDic);
-    shared_ptr<TAITask> task(new TASqiteInsetTask(*httpSend_,*m_sqlite, json_record, appid_, enableLog, callback));
-
+    shared_ptr<TAITask> task(new TASqiteInsetTask(*httpSend_,*m_sqlite, json_record, appid_));
     ThinkingdataTask::getMDataTaskQue()->PushTask(task);
-    
+
     return true;
 }
 
 void ThinkingAnalyticsAPI::InnerFlush() {
-    shared_ptr<TAITask> networkTask(new TANetworkTask(*m_sqlite, *httpSend_, appid_, enableLog));
-    ThinkingdataTask::getMNetworkTaskQue()->PushTask(networkTask);
+    shared_ptr<TAITask> flushTask(new TAFlushTask(*m_sqlite, *httpSend_, appid_));
+    ThinkingdataTask::getMDataTaskQue()->PushTask(flushTask);
 }
 
 void ThinkingAnalyticsAPI::Flush() {
     if (instance_) {
-        _flush = true;
         instance_->InnerFlush();
     }
 }
@@ -420,7 +378,12 @@ void ThinkingAnalyticsAPI::LogOut() {
 
 void ThinkingAnalyticsAPI::Identify(const string &distinct_id) {
     if (instance_) {
-        instance_->distinct_id_ = distinct_id;
+        if (distinct_id.size()>0) {
+            instance_->distinct_id_ = distinct_id;
+        }
+        else {
+            instance_->distinct_id_ = instance_->device_id_;
+        }
 		const char *path = instance_->staging_file_path_.c_str();
         ta_cpp_helper::updateDistinctId(instance_->appid_.c_str(), distinct_id.c_str(), path);
     }
@@ -428,15 +391,34 @@ void ThinkingAnalyticsAPI::Identify(const string &distinct_id) {
 
 void ThinkingAnalyticsAPI::SetSuperProperty(const TDJSONObject &properties){
     if (instance_) {
-        instance_->m_superProperties->MergeFrom(properties);
-        ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), TDJSONObject::ToJson(*instance_->m_superProperties).c_str());
+
+        ta_superProperty_mtx.lock();
+        instance_->m_superProperties.MergeFrom(properties);
+       
+        string superProperty = TDJSONObject::ToJson(instance_->m_superProperties);
+#if defined(_WIN32) && defined(_MSC_VER)
+        if (!CheckUtf8Valid(superProperty.c_str())) {
+            char* str = G2U(superProperty.c_str());;
+            superProperty = string(str);
+            delete str;
+            ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), superProperty.c_str());
+
+        } else {
+            ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), superProperty.c_str());
+        }
+#else
+        ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), superProperty.c_str());
+#endif  
+        ta_superProperty_mtx.unlock();
     }
 }
 
 void ThinkingAnalyticsAPI::ClearSuperProperty(){
     if (instance_) {
-        instance_->m_superProperties = new TDJSONObject();
-        ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), TDJSONObject::ToJson(*instance_->m_superProperties).c_str());
+        ta_superProperty_mtx.lock();
+        instance_->m_superProperties.Clear();
+        ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), TDJSONObject::ToJson(instance_->m_superProperties).c_str());
+        ta_superProperty_mtx.unlock();
     }
 }
 
@@ -485,20 +467,13 @@ void ThinkingAnalyticsAPI::UserUnset(string propertyName)  {
     }
 }
 
-
-bool ThinkingAnalyticsAPI::IsEnableLog() {
-    return instance_ ? instance_->httpSend_->enable_log_ : false;
-}
-
 string ThinkingAnalyticsAPI::StagingFilePath() {
     return instance_ ? instance_->staging_file_path_ :  "";
 }
 
 ThinkingAnalyticsAPI::ThinkingAnalyticsAPI(const string &server_url,
                                            const string &appid)
-: httpSend_(new TAHttpSend(server_url, appid)) {
-    srand(unsigned(time(NULL)));
-}
+: httpSend_(new TAHttpSend(server_url, appid)) {}
 
 ThinkingAnalyticsAPI::~ThinkingAnalyticsAPI() {
    
@@ -518,11 +493,6 @@ void ThinkingAnalyticsAPI::Unint()
             instance_->m_sqlite->unInit();
             delete instance_->m_sqlite;
             instance_->m_sqlite = NULL;
-        }
-
-        if (instance_->m_superProperties != NULL) {
-            delete instance_->m_superProperties;
-            instance_->m_superProperties = NULL;
         }
 
         delete ThinkingdataTask::getMDataTaskQue();

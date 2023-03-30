@@ -2,6 +2,7 @@
 // Created by wwango on 2022/11/14.
 //
 #include "ta_json_object.h"
+#include "ta_cpp_utils.h"
 #include <iostream>
 
 #if defined(_WIN32)
@@ -27,79 +28,6 @@ namespace thinkingdata {
 
     static const size_t kStringPropertyValueMaxLength = 8192;
 
-    bool CheckUtf8Valid(const string &str) {
-        const unsigned char *bytes = (const unsigned char *) str.data();
-        const unsigned char *begin = bytes;
-        while (bytes - begin < (int)str.length()) {
-            if ((bytes[0] == 0x09 || bytes[0] == 0x0A || bytes[0] == 0x0D ||
-                 (0x20 <= bytes[0] && bytes[0] <= 0x7E))) {
-                bytes += 1;
-                continue;
-            }
-            if (((0xC2 <= bytes[0] && bytes[0] <= 0xDF)
-                 && (0x80 <= bytes[1] && bytes[1] <= 0xBF))) {
-                bytes += 2;
-                continue;
-            }
-            if ((bytes[0] == 0xE0 && (0xA0 <= bytes[1] && bytes[1] <= 0xBF) &&
-                 (0x80 <= bytes[2] && bytes[2] <= 0xBF)) ||
-                (((0xE1 <= bytes[0] && bytes[0] <= 0xEC) || bytes[0] == 0xEE
-                  || bytes[0] == 0xEF) &&
-                 (0x80 <= bytes[1] && bytes[1] <= 0xBF)
-                 && (0x80 <= bytes[2] && bytes[2] <= 0xBF)) ||
-                (bytes[0] == 0xED && (0x80 <= bytes[1] && bytes[1] <= 0x9F) &&
-                 (0x80 <= bytes[2] && bytes[2] <= 0xBF))) {
-                bytes += 3;
-                continue;
-            }
-            if ((bytes[0] == 0xF0 && (0x90 <= bytes[1] && bytes[1] <= 0xBF) &&
-                 (0x80 <= bytes[2] && bytes[2] <= 0xBF) &&
-                 (0x80 <= bytes[3] && bytes[3] <= 0xBF)) ||
-                ((0xF1 <= bytes[0] && bytes[0] <= 0xF3)
-                 && (0x80 <= bytes[1] && bytes[1] <= 0xBF) &&
-                 (0x80 <= bytes[2] && bytes[2] <= 0xBF)
-                 && (0x80 <= bytes[3] && bytes[3] <= 0xBF)) ||
-                (bytes[0] == 0xF4 && (0x80 <= bytes[1] && bytes[1] <= 0x8F) &&
-                 (0x80 <= bytes[2] && bytes[2] <= 0xBF) &&
-                 (0x80 <= bytes[3] && bytes[3] <= 0xBF))) {
-                bytes += 4;
-                continue;
-            }
-            return false;
-        }
-        return bytes - begin == str.length();
-    }
-
-#if defined(_WIN32)
-    // std::string to UTF-8
-    std::string string_To_UTF8(const std::string& str)
-    {
-        int nwLen = ::MultiByteToWideChar(CP_ACP, 0, str.c_str(), -1, NULL, 0);
-
-        wchar_t* pwBuf = new wchar_t[nwLen + 1];
-        ZeroMemory(pwBuf, nwLen * 2 + 2);
-
-        ::MultiByteToWideChar(CP_ACP, 0, str.c_str(), str.length(), pwBuf, nwLen);
-
-        int nLen = ::WideCharToMultiByte(CP_UTF8, 0, pwBuf, -1, NULL, NULL, NULL, NULL);
-
-        char* pBuf = new char[nLen + 1];
-        ZeroMemory(pBuf, nLen + 1);
-
-        ::WideCharToMultiByte(CP_UTF8, 0, pwBuf, nwLen, pBuf, nLen, NULL, NULL);
-
-        std::string retStr(pBuf);
-
-        delete[]pwBuf;
-        delete[]pBuf;
-
-        pwBuf = NULL;
-        pBuf = NULL;
-
-        return retStr;
-    }
-#endif
-
     void TDJSONObject::SetString(const string &property_name, const string &value) {
 //    if (value.length() > kStringPropertyValueMaxLength) {
 //        std::cerr << "String property '" << property_name
@@ -117,11 +45,7 @@ namespace thinkingdata {
         if (!CheckUtf8Valid(value)) {
             std::cerr << "String property '" << property_name
                       << "' is not valid UTF-8 string, value: " << value
-                      << std::endl;
-#if defined(_WIN32)
-            properties_map_[property_name] = ValueNode(string_To_UTF8(value));
-#endif  
-            return;
+                      << std::endl; 
         }
         properties_map_[property_name] = ValueNode(value);
     }
@@ -178,7 +102,7 @@ namespace thinkingdata {
                 *buffer += ',';
             }
             *buffer += '"' + iterator->first + "\":";
-            ValueNode::ToStr(iterator->second, buffer);
+            ValueNode::JsonNodeToString(iterator->second, buffer);
         }
         *buffer += '}';
     }
@@ -285,6 +209,17 @@ namespace thinkingdata {
             iterator = another_node.properties_map_.begin();
             iterator != another_node.properties_map_.end(); ++iterator) {
             properties_map_[iterator->first] = iterator->second;
+        }
+    }
+
+
+    void TDJSONObject::UnInit(TDJSONObject* another_node) {
+        for (std::map<string, ValueNode>::const_iterator
+            iterator = another_node->properties_map_.begin();
+            iterator != another_node->properties_map_.end(); ++iterator) {
+            if (iterator->second.node_type_ == OBJECT) {
+                delete  & iterator->second.object_data_;
+            }
         }
     }
 

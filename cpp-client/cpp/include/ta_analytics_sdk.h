@@ -14,7 +14,7 @@
 #include <vector>
 #include "ta_json_object.h"
 
-#define TD_LIB_VERSION "1.3.3"
+#define TD_LIB_VERSION "1.3.4"
 
 #define TD_LIB_NAME "Cpp"
 
@@ -163,7 +163,6 @@ public:
 
     static string DistinctID();
     static string StagingFilePath();
-    static bool IsEnableLog();
 
     ~ThinkingAnalyticsAPI();
 
@@ -189,17 +188,15 @@ private:
 
     void InnerFlush();
 
-    
-
     string appid_;
     string server_url_;
     string account_id_;
     string distinct_id_;
+    string device_id_;
     string staging_file_path_;
     TAHttpSend *httpSend_;
     TASqliteDataQueue *m_sqlite;
-    TDJSONObject *m_superProperties;
-    bool enableLog;
+    TDJSONObject m_superProperties;
 };
 
 enum EventType {
@@ -216,24 +213,24 @@ public:
     string mEventName;
     TDJSONObject mProperties;
     string mExtraId;
-    ThinkingAnalyticsEvent(string eventName,TDJSONObject properties);
+    ThinkingAnalyticsEvent(const string &eventName, const TDJSONObject &properties);
 };
 class TDFirstEvent: public ThinkingAnalyticsEvent
 {
 public:
-    TDFirstEvent(string eventName,TDJSONObject properties);
-    void setFirstCheckId(string firstCheckId);
+    TDFirstEvent(const string &eventName,const TDJSONObject & properties);
+    void setFirstCheckId(const string & firstCheckId);
 
 };
 class TDUpdatableEvent: public ThinkingAnalyticsEvent
 {
 public:
-    TDUpdatableEvent(string eventName,TDJSONObject properties,string eventId);
+    TDUpdatableEvent(const string & eventName,const TDJSONObject & properties, const string & eventId);
 };
 class TDOverWritableEvent: public ThinkingAnalyticsEvent
 {
 public:
-    TDOverWritableEvent(string eventName,TDJSONObject properties,string eventId);
+    TDOverWritableEvent(const string &eventName,const TDJSONObject & properties, const string & eventId);
 };
 
 }

@@ -33,7 +33,7 @@ namespace thinkingdata {
     class TAITask {
     public:
         virtual ~TAITask() {
-
+            
         }
         virtual void DoTask() = 0;
         virtual void Stop() = 0;
@@ -45,26 +45,13 @@ namespace thinkingdata {
         void DoTask();
         void Stop();
 
-        TASqiteInsetTask(TAHttpSend& m_httpSend, TASqliteDataQueue &sqliteQueue, string event, string appid, bool enableLog, void(*callback)(int));
+        TASqiteInsetTask(TAHttpSend& m_httpSend, TASqliteDataQueue &sqliteQueue, string event, string appid);
     private:
         string m_event;
         string m_appid;
         TASqliteDataQueue &m_sqliteQueue;
-        bool m_enableLog;
         TAHttpSend& m_httpSend;
-        void(*m_callback)(int);
-    };
 
-    class TASqiteDeleteTask : public TAITask {
-    public:
-        ~TASqiteDeleteTask();
-        void DoTask();
-        void Stop();
-        TASqiteDeleteTask(TASqliteDataQueue &sqliteQueue, vector<string> uuids, bool enableLog);
-    private:
-        vector<string> m_uuids;
-        TASqliteDataQueue &m_sqliteQueue;
-        bool m_enableLog;
     };
 
     class TANetworkTask : public TAITask {
@@ -72,12 +59,23 @@ namespace thinkingdata {
         ~TANetworkTask();
         void DoTask();
         void Stop();
-        TANetworkTask(TASqliteDataQueue &sqliteQueue, TAHttpSend &httpSend, string appid, bool enableLog);
+        TANetworkTask(TASqliteDataQueue &sqliteQueue, TAHttpSend &httpSend, string appid);
     private:
         TASqliteDataQueue &m_sqliteQueue;
         TAHttpSend &m_httpSend;
         string m_appid;
-        bool m_enableLog;
+    };
+
+    class TAFlushTask : public TAITask {
+    public:
+        ~TAFlushTask();
+        void DoTask();
+        void Stop();
+        TAFlushTask(TASqliteDataQueue &sqliteQueue, TAHttpSend &httpSend, string appid);
+    private:
+        TASqliteDataQueue &m_sqliteQueue;
+        TAHttpSend &m_httpSend;
+        string m_appid;
     };
 
 
@@ -95,7 +93,8 @@ namespace thinkingdata {
     private:
         mutex m_lock;
         thread *m_pThread;
-
+        condition_variable cv;
+        mutex mtx;
         queue<shared_ptr<TAITask>> m_taskQue;
         shared_ptr<TAITask> m_currentTask;
     };
