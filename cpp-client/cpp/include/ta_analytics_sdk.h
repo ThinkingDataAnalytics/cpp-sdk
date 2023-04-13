@@ -14,7 +14,7 @@
 #include <vector>
 #include "ta_json_object.h"
 
-#define TD_LIB_VERSION "1.3.5"
+#define TD_LIB_VERSION "1.3.5-beta.1"
 
 #define TD_LIB_NAME "Cpp"
 
