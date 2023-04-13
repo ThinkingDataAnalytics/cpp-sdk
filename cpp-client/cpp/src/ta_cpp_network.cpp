@@ -64,6 +64,7 @@ inline string &Trim(string &s);       // NOLINT
 Connection::Connection(const string &base_url)
     : last_request_(), header_fields_() {
   try {
+    curl_global_init(CURL_GLOBAL_ALL);
     this->curl_handle_ = curl_easy_init();
     if (!this->curl_handle_) {
       throw runtime_error("Couldn't initialize curl handle");

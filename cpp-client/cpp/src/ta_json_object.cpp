@@ -212,17 +212,6 @@ namespace thinkingdata {
         }
     }
 
-
-    void TDJSONObject::UnInit(TDJSONObject* another_node) {
-        for (std::map<string, ValueNode>::const_iterator
-            iterator = another_node->properties_map_.begin();
-            iterator != another_node->properties_map_.end(); ++iterator) {
-            if (iterator->second.node_type_ == OBJECT) {
-                delete  & iterator->second.object_data_;
-            }
-        }
-    }
-
     TDJSONObject::ValueNode::ValueNode(double value) : node_type_(NUMBER) {
         value_.number_value = value;
     }

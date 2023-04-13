@@ -14,7 +14,7 @@
 #include <vector>
 #include "ta_json_object.h"
 
-#define TD_LIB_VERSION "1.3.4"
+#define TD_LIB_VERSION "1.3.5"
 
 #define TD_LIB_NAME "Cpp"
 
@@ -52,6 +52,7 @@ public:
 
     // ThinkingAnalyticsAPI Destructor
     static void Unint();
+    static void UnInit();
     
     static void EnableLog(bool enable);
 
@@ -177,7 +178,7 @@ private:
 
     ThinkingAnalyticsAPI(const ThinkingAnalyticsAPI &);
 
-    ThinkingAnalyticsAPI &operator=(const ThinkingAnalyticsAPI &);
+    //ThinkingAnalyticsAPI &operator=(const ThinkingAnalyticsAPI &);
 
     bool AddEvent(const string &action_type, const string &event_name,
                   const TDJSONObject &properties,

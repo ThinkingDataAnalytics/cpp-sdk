@@ -165,12 +165,49 @@ bool ThinkingAnalyticsAPI::Init(const string &server_url,
     if (!instance_) {
         string data_file_path = "";
 
+
+        TATaskQueue* dataTaskQue = new (std::nothrow) TATaskQueue();
+        if (dataTaskQue == nullptr) {
+            std::cout << "\n[ThinkingEngine] Failed to allocate memory for dataTaskQue" << std::endl;
+            return false;
+        }
+
+        TATaskQueue* networkTaskQue = new (std::nothrow) TATaskQueue();
+        if (dataTaskQue == nullptr) {
+            std::cout << "\n[ThinkingEngine] Failed to allocate memory for networkTaskQue" << std::endl;
+            return false;
+        }
+
+        ThinkingAnalyticsAPI* ins = new ThinkingAnalyticsAPI(server_url, appid);
+        if (ins == nullptr) {
+            std::cout << "\n[ThinkingEngine] Failed to allocate memory for ThinkingAnalyticsAPI Init" << std::endl;
+            return false;
+        }
+
+        TASqliteDataQueue* sqlite = new TASqliteDataQueue(appid);
+        if (sqlite == nullptr) {
+            std::cout << "\n[ThinkingEngine] Failed to allocate memory for TASqliteDataQueue Init" << std::endl;
+            return false;
+        }
+
+        TAHttpSend* httpSend = new TAHttpSend(server_url, appid);
+        if (httpSend == nullptr) {
+            std::cout << "\n[ThinkingEngine] Failed to allocate memory for TAHttpSend Init" << std::endl;
+            return false;
+        }
+
+        // init dataTaskQue networkTaskQue
+        TATaskQueue::m_ta_dataTaskQue = dataTaskQue;
+        TATaskQueue::m_ta_dataTaskQue->Start();
+        TATaskQueue::m_ta_networkTaskQue = networkTaskQue;
+        TATaskQueue::m_ta_networkTaskQue->Start();
+
         // init TA instance
-        instance_ = new ThinkingAnalyticsAPI(server_url, appid);
+        instance_ = ins;
         instance_->appid_ = appid;
         instance_->server_url_ = server_url;
-        instance_->httpSend_->Init();
-        instance_->m_sqlite = new TASqliteDataQueue(appid);
+        instance_->httpSend_ = httpSend;
+        instance_->m_sqlite = sqlite;
 
         // get local data
         string accountId = ta_cpp_helper::loadAccount(appid.c_str(), data_file_path.c_str());
@@ -191,8 +228,6 @@ bool ThinkingAnalyticsAPI::Init(const string &server_url,
         if (deviceId.size() != 0) {
             instance_->device_id_ = deviceId;
         }
-
-        
 
         tacJSON* root_obj = NULL;
         if(oldSuperPropertyString.empty() != true) {
@@ -293,15 +328,27 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
     finalDic.SetObject("properties", propertyDic);
    
     const string json_record = TDJSONObject::ToJson(finalDic);
-    shared_ptr<TAITask> task(new TASqiteInsetTask(*httpSend_,*m_sqlite, json_record, appid_));
-    ThinkingdataTask::getMDataTaskQue()->PushTask(task);
+
+    TASqiteInsetTask *sqiteInsetTask = new TASqiteInsetTask(httpSend_,m_sqlite, json_record, appid_);
+    if (sqiteInsetTask == nullptr) {
+        std::cout << "\n[ThinkingEngine] Failed to allocate memory for TASqiteInsetTask Init" << std::endl;
+        return false;
+    }
+
+    shared_ptr<TAITask> task(sqiteInsetTask);
+    TATaskQueue::m_ta_dataTaskQue->PushTask(task);
 
     return true;
 }
 
 void ThinkingAnalyticsAPI::InnerFlush() {
-    shared_ptr<TAITask> flushTask(new TAFlushTask(*m_sqlite, *httpSend_, appid_));
-    ThinkingdataTask::getMDataTaskQue()->PushTask(flushTask);
+    TAFlushTask *_flushTask = new TAFlushTask(m_sqlite, httpSend_, appid_);
+    if (_flushTask == nullptr) {
+        std::cout << "\n[ThinkingEngine] Failed to allocate memory for TAFlushTask Init" << std::endl;
+        return ;
+    }
+    shared_ptr<TAITask> flushTask(_flushTask);
+    TATaskQueue::m_ta_dataTaskQue->PushTask(flushTask);
 }
 
 void ThinkingAnalyticsAPI::Flush() {
@@ -471,35 +518,42 @@ string ThinkingAnalyticsAPI::StagingFilePath() {
     return instance_ ? instance_->staging_file_path_ :  "";
 }
 
-ThinkingAnalyticsAPI::ThinkingAnalyticsAPI(const string &server_url,
-                                           const string &appid)
-: httpSend_(new TAHttpSend(server_url, appid)) {}
+ThinkingAnalyticsAPI::ThinkingAnalyticsAPI(const string& server_url, const string& appid): server_url_(server_url), appid_(appid) {}
 
-ThinkingAnalyticsAPI::~ThinkingAnalyticsAPI() {
-   
-}
+ThinkingAnalyticsAPI::~ThinkingAnalyticsAPI() {}
 
 void ThinkingAnalyticsAPI::Unint()
 {
-    if (instance_)
+    if (instance_ != nullptr)
     {
-        if (instance_->httpSend_ != NULL) {
-            delete instance_->httpSend_;
-            instance_->httpSend_ = NULL;
+
+        if (TATaskQueue::m_ta_dataTaskQue != nullptr) {
+            delete TATaskQueue::m_ta_dataTaskQue;
+        }
+        if (TATaskQueue::m_ta_networkTaskQue != nullptr) {
+            delete TATaskQueue::m_ta_networkTaskQue;
         }
 
-        if (instance_->m_sqlite) {
+        if (instance_->httpSend_ != nullptr) {
+            delete instance_->httpSend_;
+            instance_->httpSend_ = nullptr;
+        }
+
+        if (instance_->m_sqlite != nullptr) {
             instance_->m_sqlite->isStop = true;
             instance_->m_sqlite->unInit();
             delete instance_->m_sqlite;
-            instance_->m_sqlite = NULL;
+            instance_->m_sqlite = nullptr;
         }
 
-        delete ThinkingdataTask::getMDataTaskQue();
-        delete ThinkingdataTask::getMNetworkTaskQue();
-
         delete instance_;
-        instance_ = NULL;
+        instance_ = nullptr;
     }
 }
+
+void ThinkingAnalyticsAPI::UnInit()
+{
+    Unint();
+}
+
 }

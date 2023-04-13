@@ -23,13 +23,6 @@ namespace thinkingdata {
 
     using namespace std;
 
-    class ThinkingdataTask {
-
-    public:
-        static TATaskQueue *getMDataTaskQue();
-        static TATaskQueue *getMNetworkTaskQue();
-    };
-
     class TAITask {
     public:
         virtual ~TAITask() {
@@ -37,6 +30,7 @@ namespace thinkingdata {
         }
         virtual void DoTask() = 0;
         virtual void Stop() = 0;
+        bool isStop;
     };
 
     class TASqiteInsetTask : public TAITask {
@@ -45,12 +39,12 @@ namespace thinkingdata {
         void DoTask();
         void Stop();
 
-        TASqiteInsetTask(TAHttpSend& m_httpSend, TASqliteDataQueue &sqliteQueue, string event, string appid);
+        TASqiteInsetTask(TAHttpSend* m_httpSend, TASqliteDataQueue *sqliteQueue, string event, string appid);
     private:
         string m_event;
         string m_appid;
-        TASqliteDataQueue &m_sqliteQueue;
-        TAHttpSend& m_httpSend;
+        TASqliteDataQueue *m_sqliteQueue;
+        TAHttpSend *m_httpSend;
 
     };
 
@@ -59,10 +53,10 @@ namespace thinkingdata {
         ~TANetworkTask();
         void DoTask();
         void Stop();
-        TANetworkTask(TASqliteDataQueue &sqliteQueue, TAHttpSend &httpSend, string appid);
+        TANetworkTask(TASqliteDataQueue *sqliteQueue, TAHttpSend *httpSend, string appid);
     private:
-        TASqliteDataQueue &m_sqliteQueue;
-        TAHttpSend &m_httpSend;
+        TASqliteDataQueue *m_sqliteQueue;
+        TAHttpSend *m_httpSend;
         string m_appid;
     };
 
@@ -71,21 +65,23 @@ namespace thinkingdata {
         ~TAFlushTask();
         void DoTask();
         void Stop();
-        TAFlushTask(TASqliteDataQueue &sqliteQueue, TAHttpSend &httpSend, string appid);
+        TAFlushTask(TASqliteDataQueue *sqliteQueue, TAHttpSend *httpSend, string appid);
     private:
-        TASqliteDataQueue &m_sqliteQueue;
-        TAHttpSend &m_httpSend;
+        TASqliteDataQueue *m_sqliteQueue;
+        TAHttpSend *m_httpSend;
         string m_appid;
     };
 
 
     class TATaskQueue {
     public:
+        static TATaskQueue *m_ta_dataTaskQue;
+        static TATaskQueue *m_ta_networkTaskQue;
+
         bool isStop;
         TATaskQueue();
         ~TATaskQueue();
 
-    public:
         bool Start();
         void PushTask(const std::shared_ptr<TAITask> &task);
         void ThreadCallBack();
@@ -96,7 +92,6 @@ namespace thinkingdata {
         condition_variable cv;
         mutex mtx;
         queue<shared_ptr<TAITask>> m_taskQue;
-        shared_ptr<TAITask> m_currentTask;
     };
 
 };
