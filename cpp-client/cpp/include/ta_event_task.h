@@ -30,7 +30,7 @@ namespace thinkingdata {
         }
         virtual void DoTask() = 0;
         virtual void Stop() = 0;
-        bool isStop;
+        bool isStop = false;
     };
 
     class TASqiteInsetTask : public TAITask {
@@ -78,13 +78,14 @@ namespace thinkingdata {
         static TATaskQueue *m_ta_dataTaskQue;
         static TATaskQueue *m_ta_networkTaskQue;
 
-        bool isStop;
+        bool isStop = false;
         TATaskQueue();
         ~TATaskQueue();
 
         bool Start();
         void PushTask(const std::shared_ptr<TAITask> &task);
         void ThreadCallBack();
+        void stopWait();
 
     private:
         mutex m_lock;

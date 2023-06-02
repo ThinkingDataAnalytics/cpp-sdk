@@ -1,7 +1,9 @@
 //
 // Created by wwango on 2022/11/14.
 //
-
+#if defined(_WIN32)
+#define THINKINGDATA_API __declspec(dllexport)
+#endif
 #ifndef UNTITLED1_TA_JSON_OBJECT_H
 #define UNTITLED1_TA_JSON_OBJECT_H
 
@@ -16,6 +18,10 @@
 #include <vector>
 
 namespace thinkingdata {
+    
+    #if defined(_WIN32)
+    class THINKINGDATA_API TDJSONObject;
+    #endif
 
     using namespace std;
 

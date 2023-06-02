@@ -192,7 +192,7 @@ int main(){
     const string appid = "40eddce753cd4bef9883a01e168c3df0";
     ThinkingAnalyticsAPI::EnableLogType(thinkingdata::LOGTXT);
     ThinkingAnalyticsAPI::Init(server_url, appid);
-//    ThinkingAnalyticsAPI::EnableLog(true);
+    ThinkingAnalyticsAPI::EnableLog(true);
     ThinkingAnalyticsAPI::registerTECallback(display);
     TDJSONObject json;
     json.SetString("#country","韩国");
