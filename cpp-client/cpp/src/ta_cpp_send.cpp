@@ -9,6 +9,7 @@
 #include <zlib.h>
 #include "ta_json_object.h"
 #include "ta_cpp_utils.h"
+#include "ta_cpp_helper.h"
 
 
 namespace thinkingdata {
@@ -19,10 +20,12 @@ namespace thinkingdata {
                            const string &appid)
             : server_url_(server_url), appid_(appid) {
 
-        if (server_url_[strlen(server_url_.c_str()) - 1] == '/') {
-            server_url_ = string(server_url_ + "sync");
-        } else {
-            server_url_ = string(server_url_ + "/sync");
+        if(!server_url_.empty()) {
+            if (server_url_[strlen(server_url_.c_str()) - 1] == '/') {
+                server_url_ = string(server_url_ + "sync");
+            } else {
+                server_url_ = string(server_url_ + "/sync");
+            }
         }
     }
 
@@ -36,8 +39,9 @@ namespace thinkingdata {
                                  request_body,
                                  kRequestTimeoutSecond);
         if (response.code_ != 200) {
-            std::cerr << "ThinkingAnalytics SDK send failed: " << response.body_
-                      << std::endl;
+            ta_cpp_helper::printSDKLog("ThinkingAnalytics SDK send failed: ");
+            ta_cpp_helper::printSDKLog(response.body_);
+            ta_cpp_helper::handleTECallback(1003,response.body_);
             return false;
         }
         return true;
@@ -51,7 +55,7 @@ namespace thinkingdata {
 
         if (deflateInit2(&zs, compression_level, Z_DEFLATED,
                          15 | 16, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
-            std::cerr << "deflateInit2 failed while compressing." << std::endl;
+            ta_cpp_helper::printSDKLog("deflateInit2 failed while compressing.");
             return false;
         }
 
@@ -140,10 +144,16 @@ namespace thinkingdata {
         return true;
     }
 
-
     TAHttpSend::TAHttpSend(const string &server_url,
-                                     const string &appid)
-            : sender_(new HttpSender(server_url, appid)) {}
+                           const string &appid){
+        if (!server_url.empty() && !appid.empty()) {
+            sender_ = new (std::nothrow) HttpSender(server_url, appid);
+        }
+    }
+
+//    TAHttpSend::TAHttpSend(const string &server_url,
+//                                     const string &appid)
+//            : sender_(new HttpSender(server_url, appid)) {}
 
     bool TAHttpSend::Send(const TDJSONObject &record) {
         const string json_record = TDJSONObject::ToJson(record);
@@ -151,6 +161,11 @@ namespace thinkingdata {
 
 
         std::vector <std::pair<string, string>> http_headers;
+
+        if(!sender_){
+            return false;
+        }
+
         bool send_result = sender_->send(json_record);
 
 
@@ -159,9 +174,11 @@ namespace thinkingdata {
         wsprintf(a, L"%d UUID: %s\n", b, json_record.c_str());
         OutputDebugString(a);*/
 
-        if (TAEnableLog::getEnableLog()) {
-            cout << "\n[thinkingdata] flush suceess: " << json_record << endl;
+        if (send_result) {
+            ta_cpp_helper::printSDKLog("[ThinkingEngine] flush success:");
+            ta_cpp_helper::printSDKLog(json_record);
         }
+
         return send_result;
     }
 

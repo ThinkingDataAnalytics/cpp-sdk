@@ -21,9 +21,9 @@ namespace thinkingdata {
     public:
         bool isStop;
         sqlite3* ta_database;
-        TASqliteDataQueue(string appid);
+        TASqliteDataQueue(string appid,bool &initStatus);
         int addObject(string event, string appid);
-        vector<tuple<string, string>> getFirstRecords(int recordSize, string appid);
+        void getFirstRecords(int recordSize, string appid,vector<tuple<string, string>>& records);
         bool removeData(vector<string> uuids);
         long getAllMessageCount(string appid);
         void unInit();

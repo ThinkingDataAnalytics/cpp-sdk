@@ -19,7 +19,7 @@ namespace thinkingdata {
     
     class ta_mac_tool{
     public:
-        
+        static void printSDKLog(const string &log);
         static void updateAccount(const char *token, const char *accountId);
         static void updateDistinctId(const char *token, const char *distinctId);
         
@@ -30,6 +30,7 @@ namespace thinkingdata {
 
         static void updateSuperproperty(const char *token, const char *superproperty);
         static const char *loadSuperproperty(const char *token);
+        static void handleTECallback(int code,const string &str);
     };
 
 #endif
@@ -39,7 +40,7 @@ namespace thinkingdata {
     public:
         static string getEventID();
         static string getDeviceID();
-        
+        static void printSDKLog(const string &log);
         static void updateAccount(const char *token, const char *accountId, const char *path = "");
         static void updateDistinctId(const char *token, const char *distinctId, const char *path = "");
 
@@ -48,6 +49,6 @@ namespace thinkingdata {
 
         static void updateSuperProperty(const char *token, const char *superproperty, const char *path = "");
         static string loadSuperProperty(const char *token, const char *path = "");
-
+        static void handleTECallback(int code,const string &str);
     };
 }

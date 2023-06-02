@@ -14,7 +14,7 @@
 #include <vector>
 #include "ta_json_object.h"
 
-#define TD_LIB_VERSION "1.3.5-beta.1"
+#define TD_LIB_VERSION "1.3.5-beta.2"
 
 #define TD_LIB_NAME "Cpp"
 
@@ -41,6 +41,12 @@ class TDUpdatableEvent;
 class TDOverWritableEvent;
 class TASqliteDataQueue;
 
+enum TALogType {
+    LOGNONE = 1,
+    LOGCONSOLE = 2,
+    LOGTXT = 3
+};
+
 class ThinkingAnalyticsAPI {
 public:
 
@@ -55,6 +61,8 @@ public:
     static void UnInit();
     
     static void EnableLog(bool enable);
+
+    static void EnableLogType(TALogType type);
 
     /**
      * Set the account ID. Each setting overrides the previous value. Login events will not be uploaded.
@@ -165,6 +173,10 @@ public:
     static string DistinctID();
     static string StagingFilePath();
 
+    static void registerTECallback(void(*p)(int,const string&));
+
+    static vector<void(*)(int,const string&)> getTECallback();
+
     ~ThinkingAnalyticsAPI();
 
     static ThinkingAnalyticsAPI* instance_;
@@ -198,6 +210,7 @@ private:
     TAHttpSend *httpSend_;
     TASqliteDataQueue *m_sqlite;
     TDJSONObject m_superProperties;
+    vector<void(*)(int,const string&)> funcs;
 };
 
 enum EventType {

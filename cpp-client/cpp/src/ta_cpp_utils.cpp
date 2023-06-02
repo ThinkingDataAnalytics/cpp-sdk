@@ -12,6 +12,7 @@
 namespace thinkingdata {
 
     static bool _taEnableLog;
+    static TALogType _logType = LOGNONE;
     //mutex ta_enable_log_mutex;
     bool thinkingdata::TAEnableLog::getEnableLog() {
 //        bool _ta_enable_log = false;
@@ -26,6 +27,14 @@ namespace thinkingdata {
 //        TAEnableLog::taEnableLog == enableLog;
 //        ta_enable_log_mutex.unlock();
 
+    }
+
+    TALogType thinkingdata::TAEnableLog::getTALogType() {
+        return _logType;
+    }
+
+    void thinkingdata::TAEnableLog::setTALogType(TALogType type) {
+        _logType = type;
     }
 
 vector<string> Split(const string &str, const string &pattern) {

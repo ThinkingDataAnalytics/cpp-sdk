@@ -165,34 +165,45 @@ bool ThinkingAnalyticsAPI::Init(const string &server_url,
     if (!instance_) {
         string data_file_path = "";
 
+        if (server_url.empty()) {
+            ta_cpp_helper::printSDKLog("[ThinkingEngine] serverUrl can not be empty");
+            return false;
+        }
+
+        if (appid.empty()) {
+            ta_cpp_helper::printSDKLog("[ThinkingEngine] appId can not be empty");
+            return false;
+        }
+
 
         TATaskQueue* dataTaskQue = new (std::nothrow) TATaskQueue();
         if (dataTaskQue == nullptr) {
-            std::cout << "\n[ThinkingEngine] Failed to allocate memory for dataTaskQue" << std::endl;
+            ta_cpp_helper::printSDKLog("[ThinkingEngine] Failed to allocate memory for dataTaskQue");
             return false;
         }
 
         TATaskQueue* networkTaskQue = new (std::nothrow) TATaskQueue();
         if (dataTaskQue == nullptr) {
-            std::cout << "\n[ThinkingEngine] Failed to allocate memory for networkTaskQue" << std::endl;
+            ta_cpp_helper::printSDKLog("[ThinkingEngine] Failed to allocate memory for networkTaskQue");
             return false;
         }
 
-        ThinkingAnalyticsAPI* ins = new ThinkingAnalyticsAPI(server_url, appid);
+        ThinkingAnalyticsAPI* ins = new (std::nothrow) ThinkingAnalyticsAPI(server_url, appid);
         if (ins == nullptr) {
-            std::cout << "\n[ThinkingEngine] Failed to allocate memory for ThinkingAnalyticsAPI Init" << std::endl;
+            ta_cpp_helper::printSDKLog("ThinkingEngine] Failed to allocate memory for ThinkingAnalyticsAPI Init");
             return false;
         }
 
-        TASqliteDataQueue* sqlite = new TASqliteDataQueue(appid);
-        if (sqlite == nullptr) {
-            std::cout << "\n[ThinkingEngine] Failed to allocate memory for TASqliteDataQueue Init" << std::endl;
+        bool initStatus;
+        TASqliteDataQueue* sqlite = new (std::nothrow) TASqliteDataQueue(appid,initStatus);
+        if (sqlite == nullptr || !initStatus) {
+            ta_cpp_helper::printSDKLog("[ThinkingEngine] Failed to allocate memory for TASqliteDataQueue Init");
             return false;
         }
 
         TAHttpSend* httpSend = new TAHttpSend(server_url, appid);
         if (httpSend == nullptr) {
-            std::cout << "\n[ThinkingEngine] Failed to allocate memory for TAHttpSend Init" << std::endl;
+            ta_cpp_helper::printSDKLog("[ThinkingEngine] Failed to allocate memory for TAHttpSend Init");
             return false;
         }
 
@@ -238,16 +249,21 @@ bool ThinkingAnalyticsAPI::Init(const string &server_url,
         }
         tacJSON_Delete(root_obj);
 
-        if (TAEnableLog::getEnableLog()) {
-            cout << "\n[ThinkingEngine] ThinkingEngine SDK initialize success, AppId:  "<< appid.c_str() << ", ServerUrl: " << server_url.c_str() << ", DeviceId: " <<  ta_cpp_helper::getDeviceID().c_str() << endl;
-        }
+        string result = "[ThinkingEngine] ThinkingEngine SDK initialize success, AppId: " + appid + ", ServerUrl: " + server_url + ", DeviceId: " + ta_cpp_helper::getDeviceID();
+        ta_cpp_helper::printSDKLog(result);
     }
 
     return true;
 }
 
 void ThinkingAnalyticsAPI::EnableLog(bool enable) {
-    TAEnableLog::setEnableLog(enable);
+    if(enable){
+        TAEnableLog::setTALogType(LOGCONSOLE);
+    }
+}
+
+void ThinkingAnalyticsAPI::EnableLogType(TALogType type) {
+    TAEnableLog::setTALogType(type);
 }
 
 void ThinkingAnalyticsAPI::AddUser(string eventType, const TDJSONObject &properties)
@@ -331,7 +347,7 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
 
     TASqiteInsetTask *sqiteInsetTask = new TASqiteInsetTask(httpSend_,m_sqlite, json_record, appid_);
     if (sqiteInsetTask == nullptr) {
-        std::cout << "\n[ThinkingEngine] Failed to allocate memory for TASqiteInsetTask Init" << std::endl;
+        ta_cpp_helper::printSDKLog("[ThinkingEngine] Failed to allocate memory for TASqiteInsetTask Init");
         return false;
     }
 
@@ -344,7 +360,7 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
 void ThinkingAnalyticsAPI::InnerFlush() {
     TAFlushTask *_flushTask = new TAFlushTask(m_sqlite, httpSend_, appid_);
     if (_flushTask == nullptr) {
-        std::cout << "\n[ThinkingEngine] Failed to allocate memory for TAFlushTask Init" << std::endl;
+        ta_cpp_helper::printSDKLog("[ThinkingEngine] Failed to allocate memory for TAFlushTask Init");
         return ;
     }
     shared_ptr<TAITask> flushTask(_flushTask);
@@ -355,6 +371,19 @@ void ThinkingAnalyticsAPI::Flush() {
     if (instance_) {
         instance_->InnerFlush();
     }
+}
+
+void ThinkingAnalyticsAPI::registerTECallback(void (*p)(int, const string&)) {
+    if (instance_) {
+        instance_->funcs.push_back(p);
+    }
+}
+
+vector<void(*)(int,const string&)> ThinkingAnalyticsAPI::getTECallback(){
+    if (instance_) {
+        return instance_->funcs;
+    }
+    return {};
 }
 
 void ThinkingAnalyticsAPI::Track(const string &event_name, const TDJSONObject &properties) {

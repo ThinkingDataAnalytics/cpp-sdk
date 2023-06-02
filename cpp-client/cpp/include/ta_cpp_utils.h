@@ -7,6 +7,7 @@
 #include <iostream>
 #include <map>
 #include <vector>
+#include "ta_analytics_sdk.h"
 
 namespace thinkingdata {
 using namespace std;
@@ -15,6 +16,8 @@ class TAEnableLog {
 public:
     static bool getEnableLog();
     static void setEnableLog(bool enableLog);
+    static TALogType getTALogType();
+    static void setTALogType(TALogType type);
 };
 
 

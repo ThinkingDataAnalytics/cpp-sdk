@@ -24,7 +24,7 @@ class Connection {
     int redirect_count_;
   } RequestInfo;
 
-  explicit Connection(const string &base_url);
+  explicit Connection(const string &base_url,bool &initSuccess);
 
   ~Connection();
 
@@ -61,21 +61,24 @@ inline string &TrimRight(string &s);  // NOLINT
 inline string &Trim(string &s);       // NOLINT
 }  // namespace helpers
 
-Connection::Connection(const string &base_url)
+Connection::Connection(const string &base_url,bool &initSuccess)
     : last_request_(), header_fields_() {
   try {
     curl_global_init(CURL_GLOBAL_ALL);
     this->curl_handle_ = curl_easy_init();
     if (!this->curl_handle_) {
-      throw runtime_error("Couldn't initialize curl handle");
+//      throw runtime_error("Couldn't initialize curl handle");
+        initSuccess = false;
     }
     this->base_url_ = base_url;
     this->timeout_ = 0;
     this->follow_redirects_ = false;
     this->max_redirects_ = -1l;
     this->no_signal_ = false;
+    initSuccess = true;
   } catch (exception &err) {
     cerr << err.what() << endl;
+    initSuccess = false;
   }
 }
 
@@ -257,8 +260,9 @@ inline string &helpers::Trim(string &s) {
 Response Post(const string &url, const string &data, int timeout_second) {
   Response ret;
   Connection *conn;
+  bool initSuccess;
   try {
-    conn = new Connection("");
+    conn = new Connection("",initSuccess);
   } catch (runtime_error &e) {
     cerr << e.what() << endl;
     Response response;
@@ -266,9 +270,12 @@ Response Post(const string &url, const string &data, int timeout_second) {
     response.body_ = e.what();
     return response;
   }
-
-    
-    
+  if(!initSuccess){
+      Response response;
+      response.code_ = -1;
+      response.body_ = "Connection init fail";
+      return response;
+  }
     std::vector<std::pair<string,string> > headers;
     
     std::pair<string, string> item1;

@@ -5,18 +5,19 @@
 #include <iomanip>
 #include <fstream>
 #include <string>
-
+#include "ta_cpp_utils.h"
 #if defined(_WIN32)
 #include <windows.h>
 #else
 #include <uuid/uuid.h>
 #endif
+#include <mutex>
 
 
 namespace thinkingdata {
 
     using namespace std;
-
+    mutex ta_log_mutex;
     string ta_cpp_helper::getEventID() {
 #ifdef _WIN32
 
@@ -95,6 +96,44 @@ namespace thinkingdata {
     #elif defined(__APPLE__)
         ta_mac_tool::updateAccount(token, accountId);
     #endif
+    }
+
+    void ta_cpp_helper::printSDKLog(const string &log) {
+        TALogType type = TAEnableLog::getTALogType();
+        if (type == LOGCONSOLE) {
+            cout << log << endl;
+        }else if (type == LOGTXT) {
+            ta_log_mutex.lock();
+            std::ofstream LogFile;
+            LogFile.open("ta_event_log.txt", std::ios::app);
+            if (LogFile.is_open()) {
+                const std::streampos max_size = 1024*1024*10;
+                LogFile.seekp(0, std::ios::end);
+                if (LogFile.tellp() < max_size) {
+                #if defined(_WIN32)
+                    if (CheckUtf8Valid(log.c_str())) {
+                        char* str = U2G(log.c_str());
+                        string tmpStr = string(str);
+                        LogFile << tmpStr << "\n";
+                        delete str;
+                    }
+                    else {
+                        LogFile << log << "\n";
+                    }
+                #elif defined(__APPLE__)
+                    LogFile << log << "\n";
+                #endif
+                }
+                LogFile.close();
+            }
+            ta_log_mutex.unlock();
+        }
+    }
+
+    void ta_cpp_helper::handleTECallback(int code, const string& str) {
+        for (int i = 0; i < ThinkingAnalyticsAPI::getTECallback().size(); ++i) {
+            ThinkingAnalyticsAPI::getTECallback()[i](code,str);
+        }
     }
     
     void ta_cpp_helper::updateDistinctId(const char *token, const char *distinctId, const char *path) {
