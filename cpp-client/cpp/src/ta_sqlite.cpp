@@ -17,9 +17,16 @@ namespace thinkingdata {
     using std::tuple;
     char* G2U(const char* gb2312);
 
-    TASqliteDataQueue::TASqliteDataQueue(std::string appid,bool &initStatus): m_appid(appid), m_allmessagecount(0) {
+    TASqliteDataQueue::TASqliteDataQueue(std::string appid,bool &initStatus,bool enableCrypt,int v,string &pKey): m_appid(appid), m_allmessagecount(0) {
 
         isStop = false;
+        if(enableCrypt){
+            encrypt = new TDRSAEncrypt(v,pKey);
+            encrypt->enableEncrypt = true;
+        }else{
+            encrypt = new TDRSAEncrypt();
+            encrypt->enableEncrypt = false;
+        }
         int openDBStatus = sqlite3_open(dataBaseFilePath.c_str(), &ta_database);
         if (openDBStatus)
         {
@@ -60,6 +67,10 @@ namespace thinkingdata {
             initStatus = false;
         }
 
+    }
+
+    void TASqliteDataQueue::updateSecretKey(int version, const string &publicKey) {
+        encrypt->updateSecretKey(version,publicKey);
     }
 
     long TASqliteDataQueue::sqliteCount(string appid) {
@@ -126,12 +137,15 @@ namespace thinkingdata {
 #if defined(_WIN32) && defined(_MSC_VER)
                 if (!CheckUtf8Valid(event.c_str())) {
                     char* str = G2U(event.c_str());
-                    string tmpStr = string(str);
+                    string tmpStr;
+                    encrypt->encryptDataEvent(str,tmpStr);
                     sqlite3_bind_text(insertStatement, 1, tmpStr.c_str(), -1, SQLITE_TRANSIENT);
                     delete str;
                 }
                 else {
-                    sqlite3_bind_text(insertStatement, 1, event.c_str(), -1, SQLITE_TRANSIENT);
+                    string tmpStr;
+                    encrypt->encryptDataEvent(event.c_str(),tmpStr);
+                    sqlite3_bind_text(insertStatement, 1, tmpStr.c_str(), -1, SQLITE_TRANSIENT);
                 }  
 #else
                 sqlite3_bind_text(insertStatement, 1, event.c_str(), -1, SQLITE_TRANSIENT);
@@ -180,7 +194,9 @@ namespace thinkingdata {
                     if (!jsonChar) {
                         continue;
                     }
-                    records.push_back(make_tuple(to_string(index), string(jsonChar)));
+                    string uData;
+                    encrypt->checkUploadDataEncrypt(jsonChar,uData);
+                    records.push_back(make_tuple(to_string(index), uData));
                 }
             }
             sqlite3_finalize(stmt);
@@ -215,14 +231,14 @@ namespace thinkingdata {
 
             if (sqlite3_prepare_v2(ta_database, query.c_str(), -1, &stmt, NULL) != SQLITE_OK) {
                 string errorString = string("Delete records Error: ") + string(sqlite3_errmsg(ta_database));
-                fprintf(stdout, errorString.c_str());
+//                fprintf(stdout, errorString.c_str());
                 sqlite3_finalize(stmt);
                 return false;
             }
             bool success = true;
             if (sqlite3_step(stmt) != SQLITE_DONE) {
                 string errorString = string("Delete records Error: ") + string(sqlite3_errmsg(ta_database));
-                fprintf(stdout, errorString.c_str());
+//                fprintf(stdout, errorString.c_str());
                 success = false;
                 ta_cpp_helper::handleTECallback(1002,errorString);
             }
@@ -245,6 +261,10 @@ namespace thinkingdata {
 
     void  TASqliteDataQueue::unInit() {
         isStop = true;
+        if(encrypt != nullptr){
+            delete encrypt;
+            encrypt = nullptr;
+        }
         sqlite3_close(ta_database);
     }
 };

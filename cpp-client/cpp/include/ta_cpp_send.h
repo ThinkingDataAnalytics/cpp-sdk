@@ -17,7 +17,7 @@
 #include <sstream>
 #include <utility>
 #include <sys/timeb.h>
-
+#include "ta_cpp_network.h"
 #if defined(_WIN32)
 #include <windows.h>
 #include <iostream>
@@ -62,6 +62,8 @@ namespace thinkingdata {
 
         bool send(const string &data);
 
+        Response fetchRemoteConfig();
+
     private:
         static bool gzipString(const string &str,
                                string *out_string,
@@ -76,6 +78,7 @@ namespace thinkingdata {
 
         static const int kRequestTimeoutSecond = 3;
         string server_url_;
+        string configUrl;
         string appid_;
     };
 
@@ -88,6 +91,8 @@ namespace thinkingdata {
         void Init();
 
         bool Send(const TDJSONObject &record);
+
+        Response fetchRemoteConfig();
 
         ~TAHttpSend();
 

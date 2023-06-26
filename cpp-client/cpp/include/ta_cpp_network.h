@@ -19,6 +19,7 @@ typedef struct {
 } Response;
 
 Response Post(const string &url, const string &data, int timeout_second);
+Response Get(const string &url,int timeout_second);
 }
 
 #endif

@@ -3,7 +3,6 @@
 //
 
 #include "ta_cpp_send.h"
-#include "ta_cpp_network.h"
 #include <string.h>
 #include <curl/curl.h>
 #include <zlib.h>
@@ -22,8 +21,10 @@ namespace thinkingdata {
 
         if(!server_url_.empty()) {
             if (server_url_[strlen(server_url_.c_str()) - 1] == '/') {
+                configUrl = string(server_url_ + "config?appid="+appid_);
                 server_url_ = string(server_url_ + "sync");
             } else {
+                configUrl = string(server_url_ + "/config?appid="+appid_);
                 server_url_ = string(server_url_ + "/sync");
             }
         }
@@ -45,6 +46,16 @@ namespace thinkingdata {
             return false;
         }
         return true;
+    }
+
+    Response HttpSender::fetchRemoteConfig() {
+        Response  response = Get(configUrl,kRequestTimeoutSecond);
+        if (response.code_ != 200) {
+            ta_cpp_helper::printSDKLog("ThinkingAnalytics SDK fetch remote config: ");
+            ta_cpp_helper::printSDKLog(response.body_);
+            ta_cpp_helper::handleTECallback(1003,response.body_);
+        }
+        return response;
     }
 
     bool HttpSender::gzipString(const string &str,
@@ -168,18 +179,22 @@ namespace thinkingdata {
 
         bool send_result = sender_->send(json_record);
 
-
-    /*    int b = 123;
-        wchar_t a[MAX_PATH] = { 0 };
-        wsprintf(a, L"%d UUID: %s\n", b, json_record.c_str());
-        OutputDebugString(a);*/
-
         if (send_result) {
             ta_cpp_helper::printSDKLog("[ThinkingEngine] flush success:");
             ta_cpp_helper::printSDKLog(json_record);
         }
 
         return send_result;
+    }
+
+    Response TAHttpSend::fetchRemoteConfig() {
+        if(sender_){
+            return sender_->fetchRemoteConfig();
+        }
+        Response  res;
+        res.code_ = -1;
+        res.body_ = "sender_ init fail";
+        return res;
     }
 
     TAHttpSend::~TAHttpSend() {
