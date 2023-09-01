@@ -1,9 +1,7 @@
 //
 // Created by wwango on 2022/11/14.
 //
-#if defined(_WIN32)
-#define THINKINGDATA_API __declspec(dllexport)
-#endif
+
 #ifndef UNTITLED1_TA_JSON_OBJECT_H
 #define UNTITLED1_TA_JSON_OBJECT_H
 
@@ -18,10 +16,6 @@
 #include <vector>
 
 namespace thinkingdata {
-    
-    #if defined(_WIN32)
-    class THINKINGDATA_API TDJSONObject;
-    #endif
 
     using namespace std;
 
@@ -104,19 +98,6 @@ namespace thinkingdata {
         ValueNodeType node_type_;
         std::vector<TDJSONObject> list_obj_;
         TDJSONObject object_data_;
-        string string_data_;
-
-        union UnionValue {
-            double number_value;
-            bool bool_value;
-            struct {
-                std::time_t seconds;
-                int milliseconds;
-            } date_time_value;
-            int64_t int_value;
-
-            UnionValue() { memset(this, 0, sizeof(UnionValue)); }
-        } value_;
 
     private:
         static void DumpString(const string &value, string *buffer);
@@ -131,7 +112,20 @@ namespace thinkingdata {
         static void DumpNumber(double value, string *buffer);
 
         static void DumpNumber(int64_t value, string *buffer);
-        
+
+        union UnionValue {
+            double number_value;
+            bool bool_value;
+            struct {
+                std::time_t seconds;
+                int milliseconds;
+            } date_time_value;
+            int64_t int_value;
+
+            UnionValue() { memset(this, 0, sizeof(UnionValue)); }
+        } value_;
+
+        string string_data_;
         std::vector<string> list_data_;
        
     };

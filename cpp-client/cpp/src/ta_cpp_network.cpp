@@ -33,7 +33,6 @@ class Connection {
   void AppendHeader(const string &key, const string &value);
 
   Response Post(const string &url, const string &data);
-  Response Get(const string &url);
 
  private:
   Response PerformCurlRequest(const string &uri);
@@ -202,9 +201,6 @@ Response Connection::Post(const string &url, const string &data) {
 
   return this->PerformCurlRequest(url);
 }
-Response Connection::Get(const string &url) {
-    return this->PerformCurlRequest(url);
-}
 
 size_t helpers::WriteCallback(void *data, size_t size, size_t nmemb,
                               void *user_data) {
@@ -260,30 +256,6 @@ inline string &helpers::TrimRight(string &s) {
 inline string &helpers::Trim(string &s) { 
   return TrimLeft(TrimRight(s));
 }
-Response Get(const string &url,int timeout_second){
-    Response ret;
-    Connection *conn;
-    bool initSuccess;
-    try {
-        conn = new Connection("",initSuccess);
-    } catch (runtime_error &e) {
-        cerr << e.what() << endl;
-        Response response;
-        response.code_ = -1;
-        response.body_ = e.what();
-        return response;
-    }
-    if(!initSuccess){
-        Response response;
-        response.code_ = -1;
-        response.body_ = "Connection init fail";
-        return response;
-    }
-    conn->SetTimeout(timeout_second);
-    ret = conn->Get(url);
-    delete conn;
-    return ret;
-}
 
 Response Post(const string &url, const string &data, int timeout_second) {
   Response ret;
@@ -316,6 +288,7 @@ Response Post(const string &url, const string &data, int timeout_second) {
     
     headers.push_back(item1);
     headers.push_back(item2);
+   
   conn->SetTimeout(timeout_second);
   for (vector<HeaderFieldItem>::const_iterator iterator = headers.begin();
        iterator != headers.end(); ++iterator) {

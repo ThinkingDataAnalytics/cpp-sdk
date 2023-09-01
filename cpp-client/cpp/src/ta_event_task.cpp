@@ -8,7 +8,6 @@
 #include "ta_json_object.h"
 #include "ta_cpp_utils.h"
 #include "ta_cpp_helper.h"
-#include "ta_cJSON.h"
 
 namespace thinkingdata {
 
@@ -79,23 +78,18 @@ namespace thinkingdata {
 
         while (!records.empty()) {
 
-            vector<TDJSONObject> data;
+            vector<string> data;
             vector<string> uuids;
+            string strData = "[";
             for (auto record : records) {
                 uuids.push_back(get<0>(record));
-                string s = get<1>(record);
-                tacJSON* root_obj = NULL;
-                if(!s.empty()) {
-                    TDJSONObject dataJson;
-                    root_obj = tacJSON_Parse(s.c_str());
-                    if (root_obj->type == tacJSON_Object) {
-                        stringToTDJson(root_obj, dataJson);
-                    }
-                    data.push_back(dataJson);
-                }
-                tacJSON_Delete(root_obj);
+                strData += get<1>(record);
+                strData += ",";
             }
-            flushDic.SetList("data", data);
+            strData = strData.substr(0, strData.size() - 1);
+            strData += "]";
+
+            flushDic.SetString("data", strData);
             flushDic.SetString("#app_id", m_appid);
             timeb t1;
             ftime(&t1);
@@ -147,8 +141,7 @@ namespace thinkingdata {
     TATaskQueue::TATaskQueue() : m_pThread(nullptr), isStop(false) {}
 
     TATaskQueue::~TATaskQueue() {
-//        isStop = true;
-        stopWait();
+        isStop = true;
         if (m_pThread != nullptr) {
             if (m_pThread->joinable())
             {
@@ -169,26 +162,16 @@ namespace thinkingdata {
     }
 
     void TATaskQueue::PushTask(const shared_ptr<TAITask> &task) {
-        std::unique_lock<std::mutex> lock(m_lock);
+        m_lock.lock();
         m_taskQue.push(task);
-        cv.notify_one();
-        lock.unlock();
-    }
-
-    void TATaskQueue::stopWait() {
-        std::unique_lock<std::mutex> lock(m_lock);
-        isStop = true;
-        cv.notify_all();
-        lock.unlock();
+        m_lock.unlock();
     }
 
     void TATaskQueue::ThreadCallBack() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+
         while (!isStop) {
-            std::unique_lock<std::mutex> lock(m_lock);
-            if (m_taskQue.empty() && !isStop) {
-                cv.wait(lock);
-            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            m_lock.lock();
             if (!m_taskQue.empty()) {
                 shared_ptr<TAITask> tmp = m_taskQue.front();
                 if (!isStop && tmp != nullptr) {
@@ -197,7 +180,7 @@ namespace thinkingdata {
                 m_taskQue.pop();
                 tmp.reset();
             }
-            lock.unlock();
+            m_lock.unlock();
         }
     }
 };

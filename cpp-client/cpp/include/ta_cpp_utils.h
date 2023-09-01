@@ -8,7 +8,6 @@
 #include <map>
 #include <vector>
 #include "ta_analytics_sdk.h"
-#include "ta_cJSON.h"
 
 namespace thinkingdata {
 using namespace std;
@@ -44,8 +43,6 @@ string UrlWithoutQuery(UrlParser *parser);
 vector<string> Split(const string &str, const string &pattern);
 string Splice(const vector<string> &array, const string &pattern);
 bool CheckUtf8Valid(const string& str);
-void stringArrayToTDJsonArray(tacJSON *myjson, TDJSONObject &property);
-void stringToTDJson(tacJSON *myjson, TDJSONObject &property);
 #if defined(_WIN32) && defined(_MSC_VER)
 char* G2U(const char* gb2312);
 char* U2G(const char* utf8);

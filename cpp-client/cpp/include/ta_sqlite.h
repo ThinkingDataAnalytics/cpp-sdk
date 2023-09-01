@@ -13,8 +13,6 @@
 #include <tuple>
 #include <utility>
 #include "sqlite3.h"
-#include "ta_encrypt.h"
-#include "ta_analytics_sdk.h"
 
 namespace thinkingdata {
     using namespace std;
@@ -23,13 +21,11 @@ namespace thinkingdata {
     public:
         bool isStop;
         sqlite3* ta_database;
-        TDRSAEncrypt* encrypt;
-        TASqliteDataQueue(string appid,bool &initStatus,bool enableCrypt,int v,string &pKey);
+        TASqliteDataQueue(string appid,bool &initStatus);
         int addObject(string event, string appid);
         void getFirstRecords(int recordSize, string appid,vector<tuple<string, string>>& records);
         bool removeData(vector<string> uuids);
         long getAllMessageCount(string appid);
-        void updateSecretKey(int version, const string &publicKey);
         void unInit();
     private:
         long m_allmessagecount;

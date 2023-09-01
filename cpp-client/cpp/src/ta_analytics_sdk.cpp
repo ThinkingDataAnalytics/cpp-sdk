@@ -10,14 +10,12 @@
 #include "ta_event_task.h"
 #include "ta_sqlite.h"
 #include "ta_cpp_utils.h"
-#include "ta_calibrated_time.h"
-#include <thread>
+
 #if defined(_WIN32)
 #include <windows.h>
 #include <iostream>
 #include <fstream>
 #else
-#include <cmath>
 #include <pthread.h>
 #include <sys/time.h>
 #endif
@@ -38,8 +36,6 @@ const static string TD_EVENT_TYPE_USER_APPEND     = "user_append";
 namespace thinkingdata {
 
     mutex ta_superProperty_mtx;
-    mutex ta_distinct_mtx;
-    mutex ta_account_mtx;
 
 
 void taCJsonToTDJson(tacJSON *myjson, TDJSONObject &property);
@@ -159,56 +155,16 @@ void TDJSONObject::ValueNode::DumpNumber(int64_t value, string *buffer) {
     buf << value;
     *buffer += buf.str();
 }
-TDConfig::~TDConfig() {
-
-}
-
-void TDConfig::EnableEncrypt(int version, const string &publicKey) {
-    if(version >0 && !publicKey.empty()){
-        this->version = version;
-        this->publicKey = publicKey;
-        this->enableEncrypt = true;
-    }
-}
 
 ThinkingAnalyticsAPI *ThinkingAnalyticsAPI::instance_ = NULL;
 
-void ThinkingAnalyticsAPI::fetchRemoteConfigCallback(bool calibrateTime) {
-    if(instance_ && instance_->httpSend_){
-        Response res = instance_->httpSend_->fetchRemoteConfig();
-        if(res.code_ == 200){
-            ta_cpp_helper::printSDKLog("[ThinkingData] Info: Get remote config success, "+res.body_);
-            try{
-                tacJSON* root_obj = NULL;
-                TDJSONObject config;
-                root_obj = tacJSON_Parse(res.body_.c_str());
-                if (root_obj->type == tacJSON_Object) {
-                    stringToTDJson(root_obj, config);
-                }
-                tacJSON_Delete(root_obj);
-                TDJSONObject data = config.properties_map_["data"].object_data_;
-                if(calibrateTime){
-                    //Automatically start time calibration
-                    int64_t timeStamp = static_cast<int64_t>(data.properties_map_["server_timestamp"].value_.number_value);
-                    ThinkingAnalyticsAPI::CalibrateTime(timeStamp);
-                }
-                TDJSONObject secret_key = data.properties_map_["secret_key"].object_data_;
-                string  key = secret_key.properties_map_["key"].string_data_;
-                double v = secret_key.properties_map_["version"].value_.number_value;
-                int version = static_cast<int>(floor(v));
-                instance_->m_sqlite->updateSecretKey(version,key);
-            } catch (runtime_error &e) {
+bool ThinkingAnalyticsAPI::Init(const string &server_url,
+                                const string &appid) {
 
-            }
-        }
-    }
-}
 
-bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
     if (!instance_) {
         string data_file_path = "";
-        string server_url = config.server_url;
-        string appid = config.appid;
+
         if (server_url.empty()) {
             ta_cpp_helper::printSDKLog("[ThinkingEngine] serverUrl can not be empty");
             return false;
@@ -239,24 +195,17 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
         }
 
         bool initStatus;
-        TASqliteDataQueue* sqlite = new (std::nothrow) TASqliteDataQueue(appid,initStatus,config.enableEncrypt,config.version,config.publicKey);
+        TASqliteDataQueue* sqlite = new (std::nothrow) TASqliteDataQueue(appid,initStatus);
         if (sqlite == nullptr || !initStatus) {
             ta_cpp_helper::printSDKLog("[ThinkingEngine] Failed to allocate memory for TASqliteDataQueue Init");
             return false;
         }
 
-        TAHttpSend* httpSend = new (std::nothrow) TAHttpSend(server_url, appid);
+        TAHttpSend* httpSend = new TAHttpSend(server_url, appid);
         if (httpSend == nullptr) {
             ta_cpp_helper::printSDKLog("[ThinkingEngine] Failed to allocate memory for TAHttpSend Init");
             return false;
         }
-
-        TDTimeCalibrated* tdTimeCalibrated = new (std::nothrow) TDTimeCalibrated();
-        if(tdTimeCalibrated == nullptr){
-            ta_cpp_helper::printSDKLog("[ThinkingEngine] Failed to allocate memory for TDTimeCalibrated Init");
-            return false;
-        }
-
 
         // init dataTaskQue networkTaskQue
         TATaskQueue::m_ta_dataTaskQue = dataTaskQue;
@@ -270,7 +219,6 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
         instance_->server_url_ = server_url;
         instance_->httpSend_ = httpSend;
         instance_->m_sqlite = sqlite;
-        instance_->timeCalibrated = tdTimeCalibrated;
 
         // get local data
         string accountId = ta_cpp_helper::loadAccount(appid.c_str(), data_file_path.c_str());
@@ -300,34 +248,12 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
             }
         }
         tacJSON_Delete(root_obj);
-        if(config.enableEncrypt || config.enableAutoCalibrated){
-            //Pull configuration information from the server
-            thread t = thread(fetchRemoteConfigCallback,config.enableAutoCalibrated);
-            t.detach();
-        }
+
         string result = "[ThinkingEngine] ThinkingEngine SDK initialize success, AppId: " + appid + ", ServerUrl: " + server_url + ", DeviceId: " + ta_cpp_helper::getDeviceID();
         ta_cpp_helper::printSDKLog(result);
     }
 
     return true;
-}
-
-bool ThinkingAnalyticsAPI::Init(const string &server_url,
-                                const string &appid) {
-
-    if (!instance_) {
-        TDConfig tdConfig;
-        tdConfig.appid = appid;
-        tdConfig.server_url = server_url;
-        return Init(tdConfig);
-    }
-    return false;
-}
-
-void ThinkingAnalyticsAPI::CalibrateTime(int64_t &timestamp) {
-    if(instance_){
-        instance_->timeCalibrated->enableTimeCalibrated(timestamp);
-    }
 }
 
 void ThinkingAnalyticsAPI::EnableLog(bool enable) {
@@ -381,26 +307,18 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
     }
 
     timeb t;
-    try{
-        instance_->timeCalibrated->getTime(&t);
-    }catch(const std::exception&){
-        ftime(&t);
-    }
+    ftime(&t);
     finalDic.SetDateTime("#time", t.time, t.millitm);
 
     // finalDic.SetString("#uuid", ta_cpp_helper::getEventID());
-
-    ta_account_mtx.lock();
+    
     if (account_id_.size()>0) {
         finalDic.SetString("#account_id", account_id_);
     }
-    ta_account_mtx.unlock();
 
-    ta_distinct_mtx.lock();
     if (distinct_id_.size()>0) {
         finalDic.SetString("#distinct_id", distinct_id_);
     }
-    ta_distinct_mtx.unlock();
 
     if (eventType.size()>0) {
         finalDic.SetString("#type", eventType);
@@ -519,28 +437,23 @@ void ThinkingAnalyticsAPI::Track(const string &event_name) {
 
 void ThinkingAnalyticsAPI::Login(const string &login_id) {
     if (instance_) {
-        ta_account_mtx.lock();
         instance_->account_id_ = login_id;
 		const char *path = instance_->staging_file_path_.c_str();
         ta_cpp_helper::updateAccount(instance_->appid_.c_str(), login_id.c_str(), path);
-        ta_account_mtx.unlock();
     }
 }
 
 void ThinkingAnalyticsAPI::LogOut() {
     if (instance_) {
-        ta_account_mtx.lock();
         string login_id = "";
         instance_->account_id_ = login_id;
 		const char *path = instance_->staging_file_path_.c_str();
         ta_cpp_helper::updateAccount(instance_->appid_.c_str(), login_id.c_str(), path);
-        ta_account_mtx.unlock();
     }
 }
 
 void ThinkingAnalyticsAPI::Identify(const string &distinct_id) {
     if (instance_) {
-        ta_distinct_mtx.lock();
         if (distinct_id.size()>0) {
             instance_->distinct_id_ = distinct_id;
         }
@@ -549,7 +462,6 @@ void ThinkingAnalyticsAPI::Identify(const string &distinct_id) {
         }
 		const char *path = instance_->staging_file_path_.c_str();
         ta_cpp_helper::updateDistinctId(instance_->appid_.c_str(), distinct_id.c_str(), path);
-        ta_distinct_mtx.unlock();
     }
 }
 
@@ -661,11 +573,6 @@ void ThinkingAnalyticsAPI::Unint()
             instance_->m_sqlite->unInit();
             delete instance_->m_sqlite;
             instance_->m_sqlite = nullptr;
-        }
-
-        if(instance_->timeCalibrated != nullptr){
-            delete instance_->timeCalibrated;
-            instance_->timeCalibrated = nullptr;
         }
 
         delete instance_;

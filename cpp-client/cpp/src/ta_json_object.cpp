@@ -42,11 +42,11 @@ namespace thinkingdata {
             return;
         }
 
-        /*if (!CheckUtf8Valid(value)) {
+        if (!CheckUtf8Valid(value)) {
             std::cerr << "String property '" << property_name
                       << "' is not valid UTF-8 string, value: " << value
                       << std::endl; 
-        }*/
+        }
         properties_map_[property_name] = ValueNode(value);
     }
 
