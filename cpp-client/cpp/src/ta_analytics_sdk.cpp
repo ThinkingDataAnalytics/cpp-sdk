@@ -36,6 +36,8 @@ const static string TD_EVENT_TYPE_USER_APPEND     = "user_append";
 namespace thinkingdata {
 
     mutex ta_superProperty_mtx;
+    mutex ta_distinct_mtx;
+    mutex ta_account_mtx;
 
 
 void taCJsonToTDJson(tacJSON *myjson, TDJSONObject &property);
@@ -311,14 +313,18 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
     finalDic.SetDateTime("#time", t.time, t.millitm);
 
     // finalDic.SetString("#uuid", ta_cpp_helper::getEventID());
-    
+
+    ta_account_mtx.lock();
     if (account_id_.size()>0) {
         finalDic.SetString("#account_id", account_id_);
     }
+    ta_account_mtx.unlock();
 
+    ta_distinct_mtx.lock();
     if (distinct_id_.size()>0) {
         finalDic.SetString("#distinct_id", distinct_id_);
     }
+    ta_distinct_mtx.unlock();
 
     if (eventType.size()>0) {
         finalDic.SetString("#type", eventType);
@@ -437,23 +443,28 @@ void ThinkingAnalyticsAPI::Track(const string &event_name) {
 
 void ThinkingAnalyticsAPI::Login(const string &login_id) {
     if (instance_) {
+        ta_account_mtx.lock();
         instance_->account_id_ = login_id;
 		const char *path = instance_->staging_file_path_.c_str();
         ta_cpp_helper::updateAccount(instance_->appid_.c_str(), login_id.c_str(), path);
+        ta_account_mtx.unlock();
     }
 }
 
 void ThinkingAnalyticsAPI::LogOut() {
     if (instance_) {
+        ta_account_mtx.lock();
         string login_id = "";
         instance_->account_id_ = login_id;
 		const char *path = instance_->staging_file_path_.c_str();
         ta_cpp_helper::updateAccount(instance_->appid_.c_str(), login_id.c_str(), path);
+        ta_account_mtx.unlock();
     }
 }
 
 void ThinkingAnalyticsAPI::Identify(const string &distinct_id) {
     if (instance_) {
+        ta_distinct_mtx.lock();
         if (distinct_id.size()>0) {
             instance_->distinct_id_ = distinct_id;
         }
@@ -462,6 +473,7 @@ void ThinkingAnalyticsAPI::Identify(const string &distinct_id) {
         }
 		const char *path = instance_->staging_file_path_.c_str();
         ta_cpp_helper::updateDistinctId(instance_->appid_.c_str(), distinct_id.c_str(), path);
+        ta_distinct_mtx.unlock();
     }
 }
 

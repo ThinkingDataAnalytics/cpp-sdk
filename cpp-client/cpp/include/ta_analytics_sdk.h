@@ -1,5 +1,8 @@
 
 #pragma once
+#if defined(_WIN32)
+#define THINKINGDATA_API __declspec(dllexport)
+#endif
 #ifndef SENSORS_ANALYTICS_SDK_H_
 #define SENSORS_ANALYTICS_SDK_H_
 
@@ -14,7 +17,7 @@
 #include <vector>
 #include "ta_json_object.h"
 
-#define TD_LIB_VERSION "1.3.5"
+#define TD_LIB_VERSION "1.3.6"
 
 #define TD_LIB_NAME "Cpp"
 
@@ -33,7 +36,13 @@ namespace thinkingdata {
 
 using namespace std;
 
+
+#if defined(_WIN32)
+class THINKINGDATA_API ThinkingAnalyticsAPI;
+#else
 class ThinkingAnalyticsAPI;
+#endif
+
 class TAHttpSend;
 class TDJSONObject;
 class TDFirstEvent;

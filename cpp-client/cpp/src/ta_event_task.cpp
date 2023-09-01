@@ -141,7 +141,8 @@ namespace thinkingdata {
     TATaskQueue::TATaskQueue() : m_pThread(nullptr), isStop(false) {}
 
     TATaskQueue::~TATaskQueue() {
-        isStop = true;
+//        isStop = true;
+        stopWait();
         if (m_pThread != nullptr) {
             if (m_pThread->joinable())
             {
@@ -162,16 +163,26 @@ namespace thinkingdata {
     }
 
     void TATaskQueue::PushTask(const shared_ptr<TAITask> &task) {
-        m_lock.lock();
+        std::unique_lock<std::mutex> lock(m_lock);
         m_taskQue.push(task);
-        m_lock.unlock();
+        cv.notify_one();
+        lock.unlock();
+    }
+
+    void TATaskQueue::stopWait() {
+        std::unique_lock<std::mutex> lock(m_lock);
+        isStop = true;
+        cv.notify_all();
+        lock.unlock();
     }
 
     void TATaskQueue::ThreadCallBack() {
-
+        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         while (!isStop) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            m_lock.lock();
+            std::unique_lock<std::mutex> lock(m_lock);
+            if (m_taskQue.empty() && !isStop) {
+                cv.wait(lock);
+            }
             if (!m_taskQue.empty()) {
                 shared_ptr<TAITask> tmp = m_taskQue.front();
                 if (!isStop && tmp != nullptr) {
@@ -180,7 +191,7 @@ namespace thinkingdata {
                 m_taskQue.pop();
                 tmp.reset();
             }
-            m_lock.unlock();
+            lock.unlock();
         }
     }
 };
