@@ -237,6 +237,52 @@ bool CheckUtf8Valid(const string& str) {
     return bytes - begin == str.length();
 }
 
+void stringArrayToTDJsonArray(tacJSON *myjson, TDJSONObject &property){
+    tacJSON *child = myjson->child;
+    if (child->type == tacJSON_String) {
+        vector<string> objs = vector<string>();
+        tacJSON* obj = child;
+        while (obj != nullptr) {
+            objs.push_back(obj->valuestring);
+            obj = obj->next;
+        }
+        property.SetList(myjson->string, objs);
+    } else if (child->type == tacJSON_Object) {
+
+        vector<TDJSONObject> objs = vector<TDJSONObject>();
+        tacJSON* obj = child;
+        while (obj != nullptr) {
+            TDJSONObject _obj;
+            stringToTDJson(obj, _obj);
+            objs.push_back(_obj);
+            obj = obj->next;
+        }
+        property.SetList(myjson->string, objs);
+    }
+}
+void stringToTDJson(tacJSON *myjson, TDJSONObject &property){
+    tacJSON* obj = myjson->child;
+    while (obj != nullptr) {
+        if (obj->type == tacJSON_String) {
+            property.SetString(obj->string,obj->valuestring);
+        } else if (obj->type == tacJSON_False) {
+            property.SetBool(obj->string, false);
+        } else if (obj->type == tacJSON_True) {
+            property.SetBool(obj->string, true);
+        } else if (obj->type == tacJSON_Number) {
+            property.SetNumber(obj->string, obj->valuedouble);
+        } else if (obj->type == tacJSON_Object) {
+            TDJSONObject _obj;
+            stringToTDJson(obj, _obj);
+            property.SetObject(obj->string, _obj);
+        } else if (obj->type == tacJSON_Array) {
+            stringArrayToTDJsonArray(obj, property);
+        }
+        obj = obj->next;
+    }
+}
+
+
 #if defined(_WIN32) && defined(_MSC_VER)
 char* G2U(const char* gb2312)
 {

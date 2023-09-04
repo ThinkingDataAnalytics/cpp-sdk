@@ -16,8 +16,7 @@
 #include <utility>
 #include <vector>
 #include "ta_json_object.h"
-
-#define TD_LIB_VERSION "1.3.6"
+#define TD_LIB_VERSION "1.3.7.1"
 
 #define TD_LIB_NAME "Cpp"
 
@@ -36,19 +35,19 @@ namespace thinkingdata {
 
 using namespace std;
 
-
 #if defined(_WIN32)
 class THINKINGDATA_API ThinkingAnalyticsAPI;
 #else
 class ThinkingAnalyticsAPI;
 #endif
-
+class TDConfig;
 class TAHttpSend;
 class TDJSONObject;
 class TDFirstEvent;
 class TDUpdatableEvent;
 class TDOverWritableEvent;
 class TASqliteDataQueue;
+class TDTimeCalibrated;
 
 enum TALogType {
     LOGNONE = 1,
@@ -64,6 +63,8 @@ public:
      */
     static bool Init(const string &server_url,
                      const string &appid);
+
+    static bool Init(TDConfig &config);
 
     // ThinkingAnalyticsAPI Destructor
     static void Unint();
@@ -179,6 +180,8 @@ public:
      */
     static void Flush();
 
+    static void CalibrateTime(int64_t &timestamp);
+
     static string DistinctID();
     static string StagingFilePath();
 
@@ -210,6 +213,8 @@ private:
 
     void InnerFlush();
 
+    static void fetchRemoteConfigCallback(bool calibrateTime);
+
     string appid_;
     string server_url_;
     string account_id_;
@@ -218,6 +223,7 @@ private:
     string staging_file_path_;
     TAHttpSend *httpSend_;
     TASqliteDataQueue *m_sqlite;
+    TDTimeCalibrated *timeCalibrated;
     TDJSONObject m_superProperties;
     vector<void(*)(int,const string&)> funcs;
 };
@@ -228,6 +234,17 @@ enum EventType {
     OVERWRITABLE=3
 };
 
+class TDConfig{
+public:
+    string appid;
+    string server_url;
+    bool enableEncrypt = false;
+    bool enableAutoCalibrated = false;
+    void EnableEncrypt(int version,const string &publicKey);
+    int version;
+    string publicKey;
+    ~TDConfig();
+};
 
 class ThinkingAnalyticsEvent
 {

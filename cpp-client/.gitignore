@@ -3,4 +3,7 @@
 .DS_Store
 cpp/.DS_Store
 /build
+/out
+/.vs
+/CMakeSettings.json
 

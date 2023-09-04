@@ -8,6 +8,7 @@
 #include "ta_json_object.h"
 #include "ta_cpp_utils.h"
 #include "ta_cpp_helper.h"
+#include "ta_cJSON.h"
 
 namespace thinkingdata {
 
@@ -78,18 +79,23 @@ namespace thinkingdata {
 
         while (!records.empty()) {
 
-            vector<string> data;
+            vector<TDJSONObject> data;
             vector<string> uuids;
-            string strData = "[";
             for (auto record : records) {
                 uuids.push_back(get<0>(record));
-                strData += get<1>(record);
-                strData += ",";
+                string s = get<1>(record);
+                tacJSON* root_obj = NULL;
+                if(!s.empty()) {
+                    TDJSONObject dataJson;
+                    root_obj = tacJSON_Parse(s.c_str());
+                    if (root_obj != NULL && root_obj->type == tacJSON_Object) {
+                        stringToTDJson(root_obj, dataJson);
+                        data.push_back(dataJson);
+                    }
+                }
+                tacJSON_Delete(root_obj);
             }
-            strData = strData.substr(0, strData.size() - 1);
-            strData += "]";
-
-            flushDic.SetString("data", strData);
+            flushDic.SetList("data", data);
             flushDic.SetString("#app_id", m_appid);
             timeb t1;
             ftime(&t1);
