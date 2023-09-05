@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 #include "ta_json_object.h"
-#define TD_LIB_VERSION "1.3.7.1"
+#define TD_LIB_VERSION "1.3.8"
 
 #define TD_LIB_NAME "Cpp"
 
@@ -48,6 +48,7 @@ class TDUpdatableEvent;
 class TDOverWritableEvent;
 class TASqliteDataQueue;
 class TDTimeCalibrated;
+class TDFlushTask;
 
 enum TALogType {
     LOGNONE = 1,
@@ -58,20 +59,37 @@ enum TALogType {
 class ThinkingAnalyticsAPI {
 public:
 
-    /**
-     * After the SDK initialization is complete, the saved instance can be obtained through this app
-     */
+     /**
+      * After the SDK initialization is complete, the saved instance can be obtained through this app
+      * @param server_url reporting url
+      * @param appid project id
+      * @return initialization result
+      */
     static bool Init(const string &server_url,
                      const string &appid);
 
+    /**
+     * After the SDK initialization is complete, the saved instance can be obtained through this app
+     * @param config Initialize configuration information
+     * @return
+     */
     static bool Init(TDConfig &config);
 
-    // ThinkingAnalyticsAPI Destructor
-    static void Unint();
+    /**
+     * ThinkingAnalyticsAPI Destructor
+     */
     static void UnInit();
-    
+
+    /**
+     * log switch
+     * @param enable log switch
+     */
     static void EnableLog(bool enable);
 
+    /**
+     *
+     * @param type
+     */
     static void EnableLogType(TALogType type);
 
     /**
@@ -99,6 +117,18 @@ public:
      * @param superProperties public event attribute
      */
     static void SetSuperProperty(const TDJSONObject &properties);
+
+    /**
+     * Gets the public event properties that have been set.
+     * @param properties Public event properties that have been set
+     */
+    static void GetSuperProperties(TDJSONObject &properties);
+
+    /**
+     * Clears a public event attribute.
+     * @param propertyName Public event attribute key to clear
+     */
+    static void UnsetSuperProperties(const string &propertyName);
 
     /**
      *  Clear all public event attributes.
@@ -180,11 +210,36 @@ public:
      */
     static void Flush();
 
+    /**
+     * time calibration
+     * @param timestamp timestamp
+     */
     static void CalibrateTime(int64_t &timestamp);
 
+    /**
+     * Record the event duration, call this method to start the timing, stop the timing when the target event is uploaded, and add the attribute #duration to the event properties, in seconds.
+     * @param event_name target event name
+     */
+    static void TimeEvent(const string &event_name);
+
+    /**
+     * get visitor id
+     * @return visitor id
+     */
     static string DistinctID();
+
+    /**
+     * get device ID
+     * @return device ID
+     */
+    static string GetDeviceId();
+
     static string StagingFilePath();
 
+    /**
+     * register exception callback
+     * @param p callback
+     */
     static void registerTECallback(void(*p)(int,const string&));
 
     static vector<void(*)(int,const string&)> getTECallback();
@@ -213,7 +268,7 @@ private:
 
     void InnerFlush();
 
-    static void fetchRemoteConfigCallback(bool calibrateTime);
+    static void fetchRemoteConfigCallback(bool calibrateTime,bool encrypt);
 
     string appid_;
     string server_url_;
@@ -221,10 +276,13 @@ private:
     string distinct_id_;
     string device_id_;
     string staging_file_path_;
+    vector<string> disableEventList;
     TAHttpSend *httpSend_;
     TASqliteDataQueue *m_sqlite;
     TDTimeCalibrated *timeCalibrated;
+    TDFlushTask *flushTask;
     TDJSONObject m_superProperties;
+    map<string, int64_t> trackTimer;
     vector<void(*)(int,const string&)> funcs;
 };
 

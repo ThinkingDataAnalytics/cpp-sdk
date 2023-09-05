@@ -30,13 +30,13 @@ namespace thinkingdata {
         int openDBStatus = sqlite3_open(dataBaseFilePath.c_str(), &ta_database);
         if (openDBStatus)
         {
-            ta_cpp_helper::printSDKLog("[ThinkingEngine]  Can't open database: ");
+            ta_cpp_helper::printSDKLog("[ThinkingData] Error: Can't open database: ");
             ta_cpp_helper::printSDKLog(sqlite3_errmsg(ta_database));
             initStatus = false;
         }
         else
         {
-            ta_cpp_helper::printSDKLog("[ThinkingEngine]  Opened database successfully ");
+            ta_cpp_helper::printSDKLog("[ThinkingData] Info: Opened database successfully ");
             initStatus = true;
         }
 
@@ -49,14 +49,14 @@ namespace thinkingdata {
             int createDataTable = sqlite3_exec(ta_database, dataTable.c_str(), NULL, NULL, &createDataTableErrMsg);
             if (createDataTable != SQLITE_OK)
             {
-                ta_cpp_helper::printSDKLog("[ThinkingEngine]  SQL error:");
+                ta_cpp_helper::printSDKLog("[ThinkingData] Error: SQL error:");
                 ta_cpp_helper::printSDKLog(createDataTableErrMsg);
                 sqlite3_free(createDataTableErrMsg);
                 initStatus = false;
             }
             else
             {
-                ta_cpp_helper::printSDKLog("[ThinkingEngine]  Table created successfully");
+                ta_cpp_helper::printSDKLog("[ThinkingData] Info: Table created successfully");
                 initStatus = true;
                 // allmessageCount
                 m_allmessagecount = sqliteCount(appid);

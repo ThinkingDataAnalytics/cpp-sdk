@@ -90,9 +90,9 @@ void* myThread(int n)
     return 0;
 }
 void callback(string reason){
-//    TDJSONObject json;
-//    json.SetString("encrypt_error_reason",reason);
-//    ThinkingAnalyticsAPI::Track("ta_encrypt_error",json);
+    TDJSONObject json;
+    json.SetString("encrypt_error_reason",reason);
+    ThinkingAnalyticsAPI::Track("ta_encrypt_error",json);
 }
 bool flag = true;
 void display(int code, const string& str)
@@ -197,9 +197,11 @@ int main(){
 //    for (auto& t : threads) {
 //         t.join();
 //    }
-    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-    ThinkingAnalyticsAPI::Track("test_event_110",json);
+//    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
+
+    ThinkingAnalyticsAPI::Track("test_event_2",json);
+
     ThinkingAnalyticsAPI::Flush();
-    std::this_thread::sleep_for(std::chrono::milliseconds(30000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100000));
     return 0;
 }

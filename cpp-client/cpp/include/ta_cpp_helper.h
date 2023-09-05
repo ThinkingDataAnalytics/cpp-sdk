@@ -50,5 +50,7 @@ namespace thinkingdata {
         static void updateSuperProperty(const char *token, const char *superproperty, const char *path = "");
         static string loadSuperProperty(const char *token, const char *path = "");
         static void handleTECallback(int code,const string &str);
+        static int flush_interval;
+        static int flush_bulk_size;
     };
 }

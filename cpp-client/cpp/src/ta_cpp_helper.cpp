@@ -18,6 +18,10 @@ namespace thinkingdata {
 
     using namespace std;
     mutex ta_log_mutex;
+
+    int ta_cpp_helper::flush_bulk_size = 30;
+    int ta_cpp_helper::flush_interval = 15;
+
     string ta_cpp_helper::getEventID() {
 #ifdef _WIN32
 

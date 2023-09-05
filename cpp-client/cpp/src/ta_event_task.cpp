@@ -26,8 +26,7 @@ namespace thinkingdata {
     TAFlushTask::~TAFlushTask() {}
 
     void TASqiteInsetTask::DoTask() {
-        ta_cpp_helper::printSDKLog("[ThinkingEngine] data queue:");
-        ta_cpp_helper::printSDKLog(m_event);
+        ta_cpp_helper::printSDKLog("[ThinkingData] Info: Enqueue data, "+m_event);
 
 
         if (isStop == true) {
@@ -46,7 +45,7 @@ namespace thinkingdata {
         long messageCount = m_sqliteQueue->addObject(m_event, m_appid);
         ta_sqlite_mtx.unlock();
 
-        if (messageCount >= 30) {
+        if (messageCount >= ta_cpp_helper::flush_bulk_size) {
             TANetworkTask *task = new TANetworkTask(m_sqliteQueue, m_httpSend, m_appid);
             if (task == nullptr) {
                 ta_cpp_helper::printSDKLog("[ThinkingEngine] Failed to allocate memory for TANetworkTask Init");
@@ -116,7 +115,7 @@ namespace thinkingdata {
     }
 
     void TAFlushTask::DoTask() {
-        ta_cpp_helper::printSDKLog("[ThinkingEngine] Flush Task");
+        ta_cpp_helper::printSDKLog("[ThinkingData] Info: Flush Task");
 
         if (isStop == true) {
             return;

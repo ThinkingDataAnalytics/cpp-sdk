@@ -89,6 +89,10 @@ namespace thinkingdata {
         properties_map_.clear();
     }
 
+    void TDJSONObject::Remove(const string &property_name) {
+        properties_map_.erase(property_name);
+    }
+
     void TDJSONObject::DumpNode(const TDJSONObject &node, string *buffer) {
         *buffer += '{';
         bool first = true;

@@ -7,7 +7,11 @@
 #if defined(_WIN32) && defined(_MSC_VER)
 #include <atlstr.h>
 #endif
-
+#if defined(_WIN32)
+#include <windows.h>
+#elif defined(__APPLE__)
+#include <mach/mach_time.h>
+#endif
 
 namespace thinkingdata {
 
@@ -280,6 +284,28 @@ void stringToTDJson(tacJSON *myjson, TDJSONObject &property){
         }
         obj = obj->next;
     }
+}
+
+bool containsKey(const vector<string>& list, const string& key){
+    if (find(list.begin(), list.end(), key) != list.end()){
+        return true;
+    }
+    return false;
+}
+
+int64_t getSystemElapsedRealTime(){
+    #if defined(_WIN32)
+    DWORD ticks = GetTickCount();
+    return static_cast<int64_t>(ticks);
+    #elif defined(__APPLE__)
+    uint64_t time = mach_absolute_time();
+    mach_timebase_info_data_t info;
+    mach_timebase_info(&info);
+    uint64_t nanoseconds = time * info.numer / info.denom;
+    int64_t t2 = static_cast<int64_t>(nanoseconds / 1000000);
+    return (t2 << 1) >> 1;
+    #endif
+    return 0;
 }
 
 

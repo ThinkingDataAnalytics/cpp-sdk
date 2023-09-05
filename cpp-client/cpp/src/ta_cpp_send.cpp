@@ -44,6 +44,9 @@ namespace thinkingdata {
             ta_cpp_helper::printSDKLog(response.body_);
             ta_cpp_helper::handleTECallback(1003,response.body_);
             return false;
+        }else{
+            ta_cpp_helper::printSDKLog("[ThinkingData] Debug: Send event, Request = "+data);
+            ta_cpp_helper::printSDKLog("[ThinkingData] Debug: Send event, Response = "+response.body_);
         }
         return true;
     }
@@ -179,10 +182,9 @@ namespace thinkingdata {
 
         bool send_result = sender_->send(json_record);
 
-        if (send_result) {
-            ta_cpp_helper::printSDKLog("[ThinkingEngine] flush success:");
-            ta_cpp_helper::printSDKLog(json_record);
-        }
+//        if (send_result) {
+//            ta_cpp_helper::printSDKLog("[ThinkingData] Debug: Send event, Request = "+json_record);
+//        }
 
         return send_result;
     }

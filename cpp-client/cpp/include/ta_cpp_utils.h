@@ -46,6 +46,8 @@ string Splice(const vector<string> &array, const string &pattern);
 bool CheckUtf8Valid(const string& str);
 void stringArrayToTDJsonArray(tacJSON *myjson, TDJSONObject &property);
 void stringToTDJson(tacJSON *myjson, TDJSONObject &property);
+bool containsKey(const vector<string>& list, const string& key);
+int64_t getSystemElapsedRealTime();
 #if defined(_WIN32) && defined(_MSC_VER)
 char* G2U(const char* gb2312);
 char* U2G(const char* utf8);

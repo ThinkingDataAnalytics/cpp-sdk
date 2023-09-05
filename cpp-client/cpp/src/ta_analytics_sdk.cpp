@@ -11,6 +11,7 @@
 #include "ta_sqlite.h"
 #include "ta_cpp_utils.h"
 #include "ta_calibrated_time.h"
+#include "ta_flush_task.h"
 #include <thread>
 #if defined(_WIN32)
 #include <windows.h>
@@ -40,6 +41,7 @@ namespace thinkingdata {
     mutex ta_superProperty_mtx;
     mutex ta_distinct_mtx;
     mutex ta_account_mtx;
+    mutex ta_timer_mtx;
 
 
 void taCJsonToTDJson(tacJSON *myjson, TDJSONObject &property);
@@ -173,7 +175,7 @@ void TDConfig::EnableEncrypt(int version, const string &publicKey) {
 
 ThinkingAnalyticsAPI *ThinkingAnalyticsAPI::instance_ = NULL;
 
-void ThinkingAnalyticsAPI::fetchRemoteConfigCallback(bool calibrateTime) {
+void ThinkingAnalyticsAPI::fetchRemoteConfigCallback(bool calibrateTime,bool encrypt) {
     if(instance_ && instance_->httpSend_){
         Response res = instance_->httpSend_->fetchRemoteConfig();
         if(res.code_ == 200){
@@ -190,11 +192,17 @@ void ThinkingAnalyticsAPI::fetchRemoteConfigCallback(bool calibrateTime) {
                         int64_t timeStamp = static_cast<int64_t>(data.properties_map_["server_timestamp"].value_.number_value);
                         ThinkingAnalyticsAPI::CalibrateTime(timeStamp);
                     }
-                    TDJSONObject secret_key = data.properties_map_["secret_key"].object_data_;
-                    string  key = secret_key.properties_map_["key"].string_data_;
-                    double v = secret_key.properties_map_["version"].value_.number_value;
-                    int version = static_cast<int>(floor(v));
-                    instance_->m_sqlite->updateSecretKey(version,key);
+                    if(encrypt){
+                        TDJSONObject secret_key = data.properties_map_["secret_key"].object_data_;
+                        string  key = secret_key.properties_map_["key"].string_data_;
+                        double v = secret_key.properties_map_["version"].value_.number_value;
+                        int version = static_cast<int>(floor(v));
+                        instance_->m_sqlite->updateSecretKey(version,key);
+                    }
+                    vector<string> disableList = data.properties_map_["disable_event_list"].list_data_;
+                    instance_->disableEventList = disableList;
+                    ta_cpp_helper::flush_bulk_size =static_cast<int>(data.properties_map_["sync_batch_size"].value_.number_value);
+                    ta_cpp_helper::flush_interval =static_cast<int>(data.properties_map_["sync_interval"].value_.number_value);
                 }
                 tacJSON_Delete(root_obj);
             } catch (runtime_error &e) {
@@ -210,19 +218,19 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
         string server_url = config.server_url;
         string appid = config.appid;
         if (server_url.empty()) {
-            ta_cpp_helper::printSDKLog("[ThinkingEngine] serverUrl can not be empty");
+            ta_cpp_helper::printSDKLog("[ThinkingData] Error: serverUrl can not be empty");
             return false;
         }
 
         if (appid.empty()) {
-            ta_cpp_helper::printSDKLog("[ThinkingEngine] appId can not be empty");
+            ta_cpp_helper::printSDKLog("[ThinkingData] Error: appId can not be empty");
             return false;
         }
 
 
         TATaskQueue* dataTaskQue = new (std::nothrow) TATaskQueue();
         if (dataTaskQue == nullptr) {
-            ta_cpp_helper::printSDKLog("[ThinkingEngine] Failed to allocate memory for dataTaskQue");
+            ta_cpp_helper::printSDKLog("[ThinkingData] Error:  Failed to allocate memory for dataTaskQue");
             return false;
         }
 
@@ -234,29 +242,34 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
 
         ThinkingAnalyticsAPI* ins = new (std::nothrow) ThinkingAnalyticsAPI(server_url, appid);
         if (ins == nullptr) {
-            ta_cpp_helper::printSDKLog("ThinkingEngine] Failed to allocate memory for ThinkingAnalyticsAPI Init");
+            ta_cpp_helper::printSDKLog("[ThinkingData] Error: Failed to allocate memory for ThinkingAnalyticsAPI Init");
             return false;
         }
 
         bool initStatus;
         TASqliteDataQueue* sqlite = new (std::nothrow) TASqliteDataQueue(appid,initStatus,config.enableEncrypt,config.version,config.publicKey);
         if (sqlite == nullptr || !initStatus) {
-            ta_cpp_helper::printSDKLog("[ThinkingEngine] Failed to allocate memory for TASqliteDataQueue Init");
+            ta_cpp_helper::printSDKLog("[ThinkingData] Error: Failed to allocate memory for TASqliteDataQueue Init");
             return false;
         }
 
         TAHttpSend* httpSend = new (std::nothrow) TAHttpSend(server_url, appid);
         if (httpSend == nullptr) {
-            ta_cpp_helper::printSDKLog("[ThinkingEngine] Failed to allocate memory for TAHttpSend Init");
+            ta_cpp_helper::printSDKLog("[ThinkingData] Error: Failed to allocate memory for TAHttpSend Init");
             return false;
         }
 
         TDTimeCalibrated* tdTimeCalibrated = new (std::nothrow) TDTimeCalibrated();
         if(tdTimeCalibrated == nullptr){
-            ta_cpp_helper::printSDKLog("[ThinkingEngine] Failed to allocate memory for TDTimeCalibrated Init");
+            ta_cpp_helper::printSDKLog("[ThinkingData] Error: Failed to allocate memory for TDTimeCalibrated Init");
             return false;
         }
 
+        TDFlushTask* ftask = new (std::nothrow) TDFlushTask();
+        if(ftask == nullptr){
+            ta_cpp_helper::printSDKLog("[ThinkingData] Error: Failed to allocate memory for TDFlushTask Init");
+            return false;
+        }
 
         // init dataTaskQue networkTaskQue
         TATaskQueue::m_ta_dataTaskQue = dataTaskQue;
@@ -271,6 +284,8 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
         instance_->httpSend_ = httpSend;
         instance_->m_sqlite = sqlite;
         instance_->timeCalibrated = tdTimeCalibrated;
+        instance_->flushTask = ftask;
+        instance_->flushTask->Start();
 
         // get local data
         string accountId = ta_cpp_helper::loadAccount(appid.c_str(), data_file_path.c_str());
@@ -300,12 +315,12 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
             }
         }
         tacJSON_Delete(root_obj);
-        if(config.enableEncrypt || config.enableAutoCalibrated){
-            //Pull configuration information from the server
-            thread t = thread(fetchRemoteConfigCallback,config.enableAutoCalibrated);
-            t.detach();
-        }
-        string result = "[ThinkingEngine] ThinkingEngine SDK initialize success, AppId: " + appid + ", ServerUrl: " + server_url + ", DeviceId: " + ta_cpp_helper::getDeviceID();
+
+        //Pull configuration information from the server
+        thread t = thread(fetchRemoteConfigCallback,config.enableAutoCalibrated,config.enableEncrypt);
+        t.detach();
+
+        string result = "[ThinkingData] Info: ThinkingData SDK initialize success, AppId: = " + appid + ", ServerUrl = " + server_url + ", DeviceId = " + ta_cpp_helper::getDeviceID()+ ", LibVersion  = " + TD_LIB_VERSION;
         ta_cpp_helper::printSDKLog(result);
     }
 
@@ -351,6 +366,10 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
                                     const TDJSONObject &properties,
                                     const string &firstCheckID,
                                     const string &eventID) {
+
+    if(containsKey(instance_->disableEventList,event_name)){
+        return false;
+    }
 
     TDJSONObject flushDic;
     TDJSONObject finalDic;
@@ -414,6 +433,21 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
         propertyDic.SetString("#lib_version", TD_LIB_VERSION);
         propertyDic.SetString("#device_id", ta_cpp_helper::getDeviceID());
         propertyDic.SetString("#lib", TD_LIB_NAME);
+        ta_timer_mtx.lock();
+        if(instance_->trackTimer.count(event_name)>0){
+            int64_t t1 = instance_->trackTimer[event_name];
+            int64_t t2 = getSystemElapsedRealTime();
+            double duration = static_cast<double>(t2-t1)/1000.0;
+            if(duration > 24*60*60){
+                duration = 24*60*60;
+            }
+            if(duration<0){
+                duration = 0;
+            }
+            propertyDic.SetNumber("#duration", duration);
+            instance_->trackTimer.erase(event_name);
+        }
+        ta_timer_mtx.unlock();
 
         #if defined(_WIN32)
             propertyDic.SetString("#os", "Windows");
@@ -524,6 +558,7 @@ void ThinkingAnalyticsAPI::Login(const string &login_id) {
 		const char *path = instance_->staging_file_path_.c_str();
         ta_cpp_helper::updateAccount(instance_->appid_.c_str(), login_id.c_str(), path);
         ta_account_mtx.unlock();
+        ta_cpp_helper::printSDKLog("[ThinkingData] Info: Login SDK, AccountId = "+login_id);
     }
 }
 
@@ -535,6 +570,7 @@ void ThinkingAnalyticsAPI::LogOut() {
 		const char *path = instance_->staging_file_path_.c_str();
         ta_cpp_helper::updateAccount(instance_->appid_.c_str(), login_id.c_str(), path);
         ta_account_mtx.unlock();
+        ta_cpp_helper::printSDKLog("[ThinkingData] Info: Logout SDK");
     }
 }
 
@@ -550,6 +586,7 @@ void ThinkingAnalyticsAPI::Identify(const string &distinct_id) {
 		const char *path = instance_->staging_file_path_.c_str();
         ta_cpp_helper::updateDistinctId(instance_->appid_.c_str(), distinct_id.c_str(), path);
         ta_distinct_mtx.unlock();
+        ta_cpp_helper::printSDKLog("[ThinkingData] Info: Setting distinct ID, DistinctId = "+distinct_id);
     }
 }
 
@@ -577,6 +614,14 @@ void ThinkingAnalyticsAPI::SetSuperProperty(const TDJSONObject &properties){
     }
 }
 
+void ThinkingAnalyticsAPI::GetSuperProperties(TDJSONObject &properties) {
+    if(instance_){
+        ta_superProperty_mtx.lock();
+        properties = instance_->m_superProperties;
+        ta_superProperty_mtx.unlock();
+    }
+}
+
 void ThinkingAnalyticsAPI::ClearSuperProperty(){
     if (instance_) {
         ta_superProperty_mtx.lock();
@@ -586,9 +631,31 @@ void ThinkingAnalyticsAPI::ClearSuperProperty(){
     }
 }
 
+void ThinkingAnalyticsAPI::UnsetSuperProperties(const string &propertyName) {
+    if (instance_) {
+        ta_superProperty_mtx.lock();
+        instance_->m_superProperties.Remove(propertyName);
+        string superProperty = TDJSONObject::ToJson(instance_->m_superProperties);
+        ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), superProperty.c_str());
+        ta_superProperty_mtx.unlock();
+    }
+}
+
 
 string ThinkingAnalyticsAPI::DistinctID() {
     return instance_ ? instance_->distinct_id_ :  "";
+}
+
+string ThinkingAnalyticsAPI::GetDeviceId() {
+    return instance_ ? instance_->device_id_ :  "";
+}
+
+void ThinkingAnalyticsAPI::TimeEvent(const string &event_name) {
+    if(instance_){
+        ta_timer_mtx.lock();
+        instance_->trackTimer[event_name] = getSystemElapsedRealTime();
+        ta_timer_mtx.unlock();
+    }
 }
 
 
@@ -639,10 +706,15 @@ ThinkingAnalyticsAPI::ThinkingAnalyticsAPI(const string& server_url, const strin
 
 ThinkingAnalyticsAPI::~ThinkingAnalyticsAPI() {}
 
-void ThinkingAnalyticsAPI::Unint()
+void ThinkingAnalyticsAPI::UnInit()
 {
     if (instance_ != nullptr)
     {
+
+        if(instance_->flushTask != nullptr){
+            delete instance_->flushTask;
+            instance_->flushTask = nullptr;
+        }
 
         if (TATaskQueue::m_ta_dataTaskQue != nullptr) {
             delete TATaskQueue::m_ta_dataTaskQue;
@@ -671,11 +743,6 @@ void ThinkingAnalyticsAPI::Unint()
         delete instance_;
         instance_ = nullptr;
     }
-}
-
-void ThinkingAnalyticsAPI::UnInit()
-{
-    Unint();
 }
 
 }

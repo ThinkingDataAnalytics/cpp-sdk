@@ -51,6 +51,8 @@ namespace thinkingdata {
 
         void Clear();
 
+        void Remove(const string &property_name);
+
         void SetObject(const string &property_name, const TDJSONObject &value);
 
         static string ToJson(const TDJSONObject &node);
@@ -105,6 +107,7 @@ namespace thinkingdata {
         std::vector<TDJSONObject> list_obj_;
         TDJSONObject object_data_;
         string string_data_;
+        std::vector<string> list_data_;
 
         union UnionValue {
             double number_value;
@@ -131,8 +134,7 @@ namespace thinkingdata {
         static void DumpNumber(double value, string *buffer);
 
         static void DumpNumber(int64_t value, string *buffer);
-        
-        std::vector<string> list_data_;
+
        
     };
 };
