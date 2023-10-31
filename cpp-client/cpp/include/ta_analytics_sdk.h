@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 #include "ta_json_object.h"
-#define TD_LIB_VERSION "1.3.8"
+#define TD_LIB_VERSION "1.3.9"
 
 #define TD_LIB_NAME "Cpp"
 
@@ -47,7 +47,7 @@ class TDFirstEvent;
 class TDUpdatableEvent;
 class TDOverWritableEvent;
 class TASqliteDataQueue;
-class TDTimeCalibrated;
+class TDSystemInfo;
 class TDFlushTask;
 
 enum TALogType {
@@ -55,7 +55,12 @@ enum TALogType {
     LOGCONSOLE = 2,
     LOGTXT = 3
 };
-
+enum TDMode{
+    TD_NORMAL,
+    TD_DEBUG,
+    TD_DEBUG_ONLY
+};
+typedef TDJSONObject (*DynamicSuperProperties)();
 class ThinkingAnalyticsAPI {
 public:
 
@@ -125,6 +130,12 @@ public:
     static void GetSuperProperties(TDJSONObject &properties);
 
     /**
+     * Gets the preset event properties.
+     * @param presetProperties  preset event properties
+     */
+    static void GetPresetProperties(TDJSONObject &presetProperties);
+
+    /**
      * Clears a public event attribute.
      * @param propertyName Public event attribute key to clear
      */
@@ -192,6 +203,14 @@ public:
      */
     static void UserAppend(const TDJSONObject &properties);
 
+
+    /**
+     * Append a user attribute of the List type.
+     * The element appended to the library needs to be done to remove the processing, remove the support, and then import.
+     * @param properties user property
+     */
+    static void UserUniqAppend(const TDJSONObject &properties);
+
     /**
      * Delete the user attributes,This operation is not reversible and should be performed with caution.
      */
@@ -242,6 +261,8 @@ public:
      */
     static void registerTECallback(void(*p)(int,const string&));
 
+    static void SetDynamicSuperProperties(DynamicSuperProperties dynamicSuperProperties);
+
     static vector<void(*)(int,const string&)> getTECallback();
 
     ~ThinkingAnalyticsAPI();
@@ -279,11 +300,13 @@ private:
     vector<string> disableEventList;
     TAHttpSend *httpSend_;
     TASqliteDataQueue *m_sqlite;
-    TDTimeCalibrated *timeCalibrated;
-    TDFlushTask *flushTask;
+    TDSystemInfo *tdSystemInfo;
+    TDFlushTask *flushTask = nullptr;
     TDJSONObject m_superProperties;
     map<string, int64_t> trackTimer;
     vector<void(*)(int,const string&)> funcs;
+    DynamicSuperProperties dynamicSuperProperties = nullptr;
+    TDMode mode = TDMode::TD_NORMAL;
 };
 
 enum EventType {
@@ -301,6 +324,9 @@ public:
     void EnableEncrypt(int version,const string &publicKey);
     int version;
     string publicKey;
+    TDMode mode = TDMode::TD_NORMAL;
+    int databaseLimit = 0;
+    int dataExpression = 0;
     ~TDConfig();
 };
 

@@ -28,6 +28,7 @@ namespace thinkingdata {
         int addObject(string event, string appid);
         void getFirstRecords(int recordSize, string appid,vector<tuple<string, string>>& records);
         bool removeData(vector<string> uuids);
+        void removeExpressionData();
         long getAllMessageCount(string appid);
         void updateSecretKey(int version, const string &publicKey);
         void unInit();

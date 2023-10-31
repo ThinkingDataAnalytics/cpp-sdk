@@ -15,14 +15,17 @@ typedef __int64 int64_t;
 #elif __GNUC__ >= 3
 #include <cstdint>
 #endif
+#include "ta_json_object.h"
 namespace thinkingdata{
-    class TDTimeCalibrated{
+    class TDSystemInfo{
     public:
         bool isCalibrated = false;
         int64_t systemTickCount = 0;
         int64_t currentTime = 0;
         void enableTimeCalibrated(int64_t &currentTime);
         void getTime(timeb *t);
+        TDJSONObject presetProperties;
+        TDSystemInfo();
     };
 }
 

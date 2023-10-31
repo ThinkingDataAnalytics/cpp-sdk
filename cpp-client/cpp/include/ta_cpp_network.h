@@ -18,7 +18,7 @@ typedef struct {
   HeaderFields headers_;
 } Response;
 
-Response Post(const string &url, const string &data, int timeout_second);
+Response Post(const string &url, const string &data, int timeout_second,HeaderFields &header_fields);
 Response Get(const string &url,int timeout_second);
 }
 

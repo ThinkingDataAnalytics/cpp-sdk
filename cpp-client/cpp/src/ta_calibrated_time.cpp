@@ -1,11 +1,16 @@
 #include "ta_calibrated_time.h"
+#include "ta_analytics_sdk.h"
+#include "ta_cpp_helper.h"
+
 #if defined(_WIN32)
 #include <windows.h>
+#include <locale>
+#include <codecvt>
 #elif defined(__APPLE__)
 #include <mach/mach_time.h>
 #endif
 namespace thinkingdata {
-    void TDTimeCalibrated::enableTimeCalibrated(int64_t &currentTime){
+    void TDSystemInfo::enableTimeCalibrated(int64_t &currentTime){
         this->isCalibrated = true;
         this->currentTime = currentTime;
         #if defined(_WIN32)
@@ -25,7 +30,7 @@ namespace thinkingdata {
         this->systemTickCount = (this->systemTickCount << 1) >> 1;
         #endif
     }
-    void TDTimeCalibrated::getTime(timeb *t) {
+    void TDSystemInfo::getTime(timeb *t) {
         if(this->isCalibrated){
             #if defined(_WIN32)
             DWORD ticks = GetTickCount();
@@ -49,4 +54,39 @@ namespace thinkingdata {
             ftime(t);
         }
     }
+
+    TDSystemInfo::TDSystemInfo() {
+        try{
+            presetProperties.SetString("#lib_version", TD_LIB_VERSION);
+            presetProperties.SetString("#lib", TD_LIB_NAME);
+            presetProperties.SetString("#device_id", ta_cpp_helper::getDeviceID());
+#if defined(_WIN32)
+            presetProperties.SetString("#os", "Windows");
+            int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+            presetProperties.SetNumber("#screen_width",screenWidth);
+            int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+            presetProperties.SetNumber("#screen_height",screenHeight);
+            //get system language
+            LANGID language = GetSystemDefaultUILanguage();
+            wchar_t buffer[LOCALE_NAME_MAX_LENGTH];
+            if (GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SISO639LANGNAME, buffer, LOCALE_NAME_MAX_LENGTH)) {
+                std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+                std::string languageStr = converter.to_bytes(buffer);
+                presetProperties.SetString("#system_language",languageStr);
+            }
+            //get system zone offset
+            TIME_ZONE_INFORMATION timeZoneInfo;
+            DWORD result = GetTimeZoneInformation(&timeZoneInfo);
+            if (result != TIME_ZONE_ID_INVALID) {
+                int tzRet = timeZoneInfo.Bias / (-60);
+                presetProperties.SetNumber("#zone_offset",tzRet);
+            }
+#elif defined(__APPLE__)
+            presetProperties.SetString("#os", "Mac");
+#endif
+        }catch (const std::exception&){
+
+        }
+    }
+
 }

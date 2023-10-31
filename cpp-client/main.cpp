@@ -2,6 +2,9 @@
 #include <ta_analytics_sdk.h>
 #include "ta_json_object.h"
 #include <thread>
+#if defined(_WIN32)
+#include <windows.h>
+#endif
 using namespace thinkingdata;
 using namespace std;
 std::thread threads[5];
@@ -98,23 +101,34 @@ bool flag = true;
 void display(int code, const string& str)
 {
     cout << code << str << endl;
-    if(code == 1004){
-        thread t = thread(callback,str);
-        t.detach();
-    }
+//    if(code == 1004){
+//        thread t = thread(callback,str);
+//        t.detach();
+//    }
+}
+TDJSONObject GetDynamicSuperProperties(){
+    TDJSONObject json;
+    json.SetString("dy_name","jack");
+    json.SetString("dy_age","18");
+    json.SetNumber("dy_number",100);
+    return json;
 }
 
 int main(){
     cout << "Hello, World!" << endl;
-    ThinkingAnalyticsAPI::EnableLogType(thinkingdata::LOGCONSOLE);
+    ThinkingAnalyticsAPI::EnableLogType(LOGCONSOLE);
     const string server_url = "https://receiver-ta-preview.thinkingdata.cn";
     const string appid = "40eddce753cd4bef9883a01e168c3df0";
     TDConfig config;
     config.appid = appid;
     config.server_url = server_url;
     config.enableAutoCalibrated = true;
+    config.mode = TDMode::TD_NORMAL;
+    config.databaseLimit = 3000;
+    config.dataExpression = 15;
     config.EnableEncrypt(1,"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAti6FnWGv7Lggzg/R8hQa4GEtd2ucfntqo6Xkf1sPwCIfndr2u6KGPhWQ24bFUKgtNLDuKnUAg1C/OEEL8uONJBdbX9XpckO67tRPSPrY3ufNIxsCJ9td557XxUsnebkOZ+oC1Duk8/ENx1pRvU6S4c+UYd6PH8wxw1agD61oJ0ju3CW0aZNZ2xKcWBcIU9KgYTeUtawrmGU5flod88CqZc8VKB1+nY0tav023jvxwkM3zgQ6vBWIU9/aViGECB98YEzJfZjcOTD6zvqsZc/WRnUNhBHFPGEwc8ueMvzZNI+FP0pUFLVRwVoYbj/tffKbxGExaRFIcgP73BIW6/6nQwIDAQAB");
     ThinkingAnalyticsAPI::Init(config);
+    ThinkingAnalyticsAPI::SetDynamicSuperProperties(GetDynamicSuperProperties);
     std::int64_t timeStamp = 1686567601647;
 //    ThinkingAnalyticsAPI::CalibrateTime(timeStamp);
 //    ThinkingAnalyticsAPI::Init(server_url, appid);
@@ -166,7 +180,7 @@ int main(){
     list1.push_back(json2);
 
     json.SetList("object1_list", list1);
-    json.SetNumber("#zone_offset", -5);
+    json.SetNumber("zone_offset", -5);
     json.SetString("draw_type", "7连抽");
     json.SetString("#data_source", "Import_Tools");
     json.SetNumber("diamond_amount", 119);
@@ -200,7 +214,6 @@ int main(){
 //    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
 
     ThinkingAnalyticsAPI::Track("test_event_2",json);
-
     ThinkingAnalyticsAPI::Flush();
     std::this_thread::sleep_for(std::chrono::milliseconds(100000));
     return 0;

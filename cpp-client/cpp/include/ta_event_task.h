@@ -70,6 +70,21 @@ namespace thinkingdata {
         TASqliteDataQueue *m_sqliteQueue;
         TAHttpSend *m_httpSend;
         string m_appid;
+        string m_event;
+    };
+
+    class TADebugTask : public TAITask {
+    public:
+        ~TADebugTask();
+        void DoTask();
+        void Stop();
+        TADebugTask(TAHttpSend *httpSend, string appid,string deviceId,string m_event,bool isDebugOnly);
+    private:
+        TAHttpSend *m_httpSend;
+        string m_appid;
+        string m_deviceId;
+        string m_event;
+        bool isDebugOnly = false;
     };
 
 

@@ -47,6 +47,7 @@ bool CheckUtf8Valid(const string& str);
 void stringArrayToTDJsonArray(tacJSON *myjson, TDJSONObject &property);
 void stringToTDJson(tacJSON *myjson, TDJSONObject &property);
 bool containsKey(const vector<string>& list, const string& key);
+string urlEncode(const std::string& str);
 int64_t getSystemElapsedRealTime();
 #if defined(_WIN32) && defined(_MSC_VER)
 char* G2U(const char* gb2312);

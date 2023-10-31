@@ -32,11 +32,11 @@ class Connection {
 
   void AppendHeader(const string &key, const string &value);
 
-  Response Post(const string &url, const string &data);
+  Response Post(const string &url, const string &data,HeaderFields &header_fields);
   Response Get(const string &url);
 
  private:
-  Response PerformCurlRequest(const string &uri);
+  Response PerformCurlRequest(const string &uri,HeaderFields &header_fields);
 
   CURL *curl_handle_;
   string base_url_;
@@ -50,7 +50,7 @@ class Connection {
 
 Response Post(const string &url,
               const string &data,
-              int timeout_second);
+              int timeout_second,HeaderFields &header_fields);
 
 namespace helpers {
 size_t WriteCallback(void *data, size_t size, size_t nmemb, void *user_data);
@@ -107,7 +107,7 @@ void Connection::SetTimeout(int seconds) { this->timeout_ = seconds; }
  *
  * @return 0 on success and 1 on error
  */
-Response Connection::PerformCurlRequest(const string &uri) {
+Response Connection::PerformCurlRequest(const string &uri,HeaderFields &header_fields) {
   // init return type
   Response ret = {};
 
@@ -132,13 +132,20 @@ Response Connection::PerformCurlRequest(const string &uri) {
   curl_easy_setopt(this->curl_handle_, CURLOPT_HEADERDATA, &ret);
 
   /** set http headers */
-  for (HeaderFields::const_iterator it = this->header_fields_.begin();
-       it != this->header_fields_.end(); ++it) {
-    header_string = it->first;
-    header_string += ": ";
-    header_string += it->second;
-    header_list = curl_slist_append(header_list, header_string.c_str());
-  }
+//  for (HeaderFields::const_iterator it = this->header_fields_.begin();
+//       it != this->header_fields_.end(); ++it) {
+//    header_string = it->first;
+//    header_string += ": ";
+//    header_string += it->second;
+//    header_list = curl_slist_append(header_list, header_string.c_str());
+//  }
+    for (HeaderFields::const_iterator it = header_fields.begin();
+         it != header_fields.end(); ++it) {
+        header_string = it->first;
+        header_string += ": ";
+        header_string += it->second;
+        header_list = curl_slist_append(header_list, header_string.c_str());
+    }
   curl_easy_setopt(this->curl_handle_, CURLOPT_HTTPHEADER, header_list);
 
 
@@ -193,17 +200,18 @@ Response Connection::PerformCurlRequest(const string &uri) {
   return ret;
 }
 
-Response Connection::Post(const string &url, const string &data) {
+Response Connection::Post(const string &url, const string &data,HeaderFields &header_fields) {
   /** Now specify we want to POST data */
   curl_easy_setopt(this->curl_handle_, CURLOPT_POST, 1L);
   /** set post fields */
   curl_easy_setopt(this->curl_handle_, CURLOPT_POSTFIELDS, data.c_str());
   curl_easy_setopt(this->curl_handle_, CURLOPT_POSTFIELDSIZE, data.size());
 
-  return this->PerformCurlRequest(url);
+  return this->PerformCurlRequest(url,header_fields);
 }
 Response Connection::Get(const string &url) {
-    return this->PerformCurlRequest(url);
+    HeaderFields header_fields;
+    return this->PerformCurlRequest(url,header_fields);
 }
 
 size_t helpers::WriteCallback(void *data, size_t size, size_t nmemb,
@@ -285,7 +293,7 @@ Response Get(const string &url,int timeout_second){
     return ret;
 }
 
-Response Post(const string &url, const string &data, int timeout_second) {
+Response Post(const string &url, const string &data, int timeout_second,HeaderFields &header_fields) {
   Response ret;
   Connection *conn;
   bool initSuccess;
@@ -304,24 +312,24 @@ Response Post(const string &url, const string &data, int timeout_second) {
       response.body_ = "Connection init fail";
       return response;
   }
-    std::vector<std::pair<string,string> > headers;
-    
-    std::pair<string, string> item1;
-    std::pair<string, string> item2;
-    item1.first = "Content-Type";
-    item1.second = "text/plain;charset=UTF-8";
-    
-    item2.first = "Accept-Encoding";
-    item2.second = "gzip, deflate, br";
-    
-    headers.push_back(item1);
-    headers.push_back(item2);
+//    std::vector<std::pair<string,string> > headers;
+//
+//    std::pair<string, string> item1;
+//    std::pair<string, string> item2;
+//    item1.first = "Content-Type";
+//    item1.second = "text/plain;charset=UTF-8";
+//
+//    item2.first = "Accept-Encoding";
+//    item2.second = "gzip, deflate, br";
+//
+//    headers.push_back(item1);
+//    headers.push_back(item2);
   conn->SetTimeout(timeout_second);
-  for (vector<HeaderFieldItem>::const_iterator iterator = headers.begin();
-       iterator != headers.end(); ++iterator) {
-    conn->AppendHeader(iterator->first, iterator->second);
-  }
-  ret = conn->Post(url, data);
+//  for (vector<HeaderFieldItem>::const_iterator iterator = headers.begin();
+//       iterator != headers.end(); ++iterator) {
+//    conn->AppendHeader(iterator->first, iterator->second);
+//  }
+  ret = conn->Post(url, data,header_fields);
   delete conn;
   return ret;
 }

@@ -52,5 +52,7 @@ namespace thinkingdata {
         static void handleTECallback(int code,const string &str);
         static int flush_interval;
         static int flush_bulk_size;
+        static int mini_database_limit;
+        static int64_t data_expression;
     };
 }

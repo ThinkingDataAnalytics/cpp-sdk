@@ -62,6 +62,8 @@ namespace thinkingdata {
 
         bool send(const string &data);
 
+        bool sendDebugData(const string &debugData);
+
         Response fetchRemoteConfig();
 
     private:
@@ -80,6 +82,7 @@ namespace thinkingdata {
         string server_url_;
         string configUrl;
         string appid_;
+        string debug_url_;
     };
 
 
@@ -91,6 +94,8 @@ namespace thinkingdata {
         void Init();
 
         bool Send(const TDJSONObject &record);
+
+        bool SendDebugData(const string& json_record);
 
         Response fetchRemoteConfig();
 

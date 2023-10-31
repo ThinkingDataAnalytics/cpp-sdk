@@ -285,6 +285,32 @@ void stringToTDJson(tacJSON *myjson, TDJSONObject &property){
         obj = obj->next;
     }
 }
+unsigned char ToHex(unsigned char x)
+{
+    return  x > 9 ? x + 55 : x + 48;
+}
+string urlEncode(const std::string& str){
+    std::string strTemp = "";
+    size_t length = str.length();
+    for (size_t i = 0; i < length; i++)
+    {
+        if (isalnum((unsigned char)str[i]) ||
+            (str[i] == '-') ||
+            (str[i] == '_') ||
+            (str[i] == '.') ||
+            (str[i] == '~'))
+            strTemp += str[i];
+        else if (str[i] == ' ')
+            strTemp += "+";
+        else
+        {
+            strTemp += '%';
+            strTemp += ToHex((unsigned char)str[i] >> 4);
+            strTemp += ToHex((unsigned char)str[i] % 16);
+        }
+    }
+    return strTemp;
+}
 
 bool containsKey(const vector<string>& list, const string& key){
     if (find(list.begin(), list.end(), key) != list.end()){

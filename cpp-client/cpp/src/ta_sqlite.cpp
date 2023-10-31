@@ -67,6 +67,8 @@ namespace thinkingdata {
             initStatus = false;
         }
 
+        removeExpressionData();
+
     }
 
     void TASqliteDataQueue::updateSecretKey(int version, const string &publicKey) {
@@ -119,12 +121,22 @@ namespace thinkingdata {
             return sqliteCount(appid);
         }
 
+        if(sqliteCount(appid)>=ta_cpp_helper::mini_database_limit){
+            vector<tuple<string, string>> records;
+            getFirstRecords(100, appid,records);
+            vector<string> uuids;
+            for (auto record : records) {
+                uuids.push_back(get<0>(record));
+            }
+            removeData(uuids);
+        }
+
         sqlite3_stmt* insertStatement = NULL;
         try
         {
             timeb t;
             ftime(&t);
-            long epochInterval = t.time * 1000 + t.millitm;
+            int64_t epochInterval = t.time;
             string uuid = ta_cpp_helper::getEventID();
             uuid += to_string(ta_index);
             ta_index++;
@@ -151,7 +163,7 @@ namespace thinkingdata {
                 sqlite3_bind_text(insertStatement, 1, event.c_str(), -1, SQLITE_TRANSIENT);
 #endif
                 sqlite3_bind_text(insertStatement, 2, appid.c_str(), -1, SQLITE_TRANSIENT);
-                sqlite3_bind_int(insertStatement, 3, epochInterval);
+                sqlite3_bind_int64(insertStatement, 3, epochInterval);
                 sqlite3_bind_text(insertStatement, 4, uuid.c_str(), -1, SQLITE_TRANSIENT);
 
                 rc = sqlite3_step(insertStatement);
@@ -208,6 +220,38 @@ namespace thinkingdata {
             }
         }
 
+    }
+
+    void TASqliteDataQueue::removeExpressionData(){
+        if (isStop) {
+            return;
+        }
+        sqlite3_stmt* stmt = NULL;
+        try
+        {
+            timeb t;
+            ftime(&t);
+            int64_t time = t.time - ta_cpp_helper::data_expression;
+            string query = "DELETE FROM TDData WHERE creatAt<?";
+
+            if (sqlite3_prepare_v2(ta_database, query.c_str(), -1, &stmt, NULL) != SQLITE_OK) {
+                sqlite3_finalize(stmt);
+                return;
+            }else{
+                sqlite3_bind_int64(stmt, 1, time);
+            }
+            if (sqlite3_step(stmt) != SQLITE_DONE) {
+                string errorString = string("Delete records Error: ") + string(sqlite3_errmsg(ta_database));
+                ta_cpp_helper::handleTECallback(1002,errorString);
+            }
+            sqlite3_finalize(stmt);
+        }
+        catch (const std::exception&)
+        {
+            if (stmt != NULL) {
+                sqlite3_finalize(stmt);
+            }
+        }
     }
 
     bool TASqliteDataQueue::removeData(vector<std::string> uuids) {

@@ -20,10 +20,12 @@ namespace thinkingdata {
     TASqiteInsetTask::TASqiteInsetTask(TAHttpSend* httpSend, TASqliteDataQueue* sqliteQueue, string event, string appid) :m_httpSend(httpSend), m_sqliteQueue(sqliteQueue), m_appid(appid), m_event(event) {}
     TANetworkTask::TANetworkTask(TASqliteDataQueue* sqliteQueue,TAHttpSend* httpSend, string appid): m_sqliteQueue(sqliteQueue), m_httpSend(httpSend), m_appid(appid) {}
     TAFlushTask::TAFlushTask(TASqliteDataQueue *sqliteQueue,TAHttpSend *httpSend, string appid): m_sqliteQueue(sqliteQueue), m_httpSend(httpSend), m_appid(appid) {}
+    TADebugTask::TADebugTask(TAHttpSend *httpSend, string appid,string deviceId,string event,bool isDebugOnly):m_httpSend(httpSend),m_appid(appid),m_deviceId(deviceId),m_event(event),isDebugOnly(isDebugOnly){}
 
     TASqiteInsetTask::~TASqiteInsetTask() {}
     TANetworkTask::~TANetworkTask() {}
     TAFlushTask::~TAFlushTask() {}
+    TADebugTask::~TADebugTask(){}
 
     void TASqiteInsetTask::DoTask() {
         ta_cpp_helper::printSDKLog("[ThinkingData] Info: Enqueue data, "+m_event);
@@ -139,9 +141,37 @@ namespace thinkingdata {
         TATaskQueue::m_ta_networkTaskQue->PushTask(networkTask);
     }
 
+    void TADebugTask::DoTask() {
+        ta_cpp_helper::printSDKLog("[ThinkingData] Info: Enqueue data, "+m_event);
+        if (isStop == true) {
+            return;
+        }
+        if(m_httpSend == nullptr){
+            return;
+        }
+        string request_body = "appid=";
+        request_body.append(m_appid);
+        request_body.append("&deviceId=");
+        request_body.append(m_deviceId);
+        request_body.append("&source=client&data=");
+        #if defined(_WIN32) && defined(_MSC_VER)
+        char* str = G2U(m_event.c_str());
+        request_body.append(urlEncode(string(str)));
+        delete str;
+        #else
+        request_body.append(urlEncode(m_event));
+        #endif
+        if(isDebugOnly){
+            request_body.append("&dryRun=1");
+        }
+        m_httpSend->SendDebugData(request_body);
+    }
+
+
     void TASqiteInsetTask::Stop() {}
     void TANetworkTask::Stop() {}
     void TAFlushTask::Stop() {}
+    void TADebugTask::Stop() {}
 
     TATaskQueue::TATaskQueue() : m_pThread(nullptr), isStop(false) {}
 

@@ -21,6 +21,8 @@ namespace thinkingdata {
 
     int ta_cpp_helper::flush_bulk_size = 30;
     int ta_cpp_helper::flush_interval = 15;
+    int ta_cpp_helper::mini_database_limit = 10000;
+    int64_t ta_cpp_helper::data_expression = 10*24*60*60;
 
     string ta_cpp_helper::getEventID() {
 #ifdef _WIN32

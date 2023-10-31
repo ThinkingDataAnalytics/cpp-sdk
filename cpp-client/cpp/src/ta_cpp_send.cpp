@@ -23,9 +23,11 @@ namespace thinkingdata {
             if (server_url_[strlen(server_url_.c_str()) - 1] == '/') {
                 configUrl = string(server_url_ + "config?appid="+appid_);
                 server_url_ = string(server_url_ + "sync");
+                debug_url_ = string(server_url + "data_debug");
             } else {
                 configUrl = string(server_url_ + "/config?appid="+appid_);
                 server_url_ = string(server_url_ + "/sync");
+                debug_url_ = string(server_url + "/data_debug");
             }
         }
     }
@@ -35,10 +37,12 @@ namespace thinkingdata {
         if (!encodeToRequestBody(data, &request_body)) {
             return false;
         }
-
+        HeaderFields header_fields;
+        header_fields["Content-Type"] = "text/plain;charset=UTF-8";
+        header_fields["Accept-Encoding"] = "gzip, deflate, br";
         Response response = Post(server_url_,
                                  request_body,
-                                 kRequestTimeoutSecond);
+                                 kRequestTimeoutSecond,header_fields);
         if (response.code_ != 200) {
             ta_cpp_helper::printSDKLog("ThinkingAnalytics SDK send failed: ");
             ta_cpp_helper::printSDKLog(response.body_);
@@ -46,6 +50,25 @@ namespace thinkingdata {
             return false;
         }else{
             ta_cpp_helper::printSDKLog("[ThinkingData] Debug: Send event, Request = "+data);
+            ta_cpp_helper::printSDKLog("[ThinkingData] Debug: Send event, Response = "+response.body_);
+        }
+        return true;
+    }
+
+    bool HttpSender::sendDebugData(const string &debugData) {
+        HeaderFields header_fields;
+        header_fields["Content-Type"] = "application/x-www-form-urlencoded";
+        header_fields["charset"] = "utf-8";
+        Response response = Post(debug_url_,
+                                 debugData,
+                                 kRequestTimeoutSecond,header_fields);
+        if (response.code_ != 200) {
+            ta_cpp_helper::printSDKLog("ThinkingAnalytics SDK send failed: ");
+            ta_cpp_helper::printSDKLog(response.body_);
+            ta_cpp_helper::handleTECallback(1003,response.body_);
+            return false;
+        }else{
+            ta_cpp_helper::printSDKLog("[ThinkingData] Debug: Send event, Request = "+debugData);
             ta_cpp_helper::printSDKLog("[ThinkingData] Debug: Send event, Response = "+response.body_);
         }
         return true;
@@ -186,6 +209,14 @@ namespace thinkingdata {
 //            ta_cpp_helper::printSDKLog("[ThinkingData] Debug: Send event, Request = "+json_record);
 //        }
 
+        return send_result;
+    }
+
+    bool TAHttpSend::SendDebugData(const string& json_record) {
+        if(!sender_){
+            return false;
+        }
+        bool send_result = sender_->sendDebugData(json_record);
         return send_result;
     }
 
