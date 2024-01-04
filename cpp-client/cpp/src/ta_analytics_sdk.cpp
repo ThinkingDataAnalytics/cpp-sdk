@@ -216,7 +216,6 @@ void ThinkingAnalyticsAPI::fetchRemoteConfigCallback(bool calibrateTime,bool enc
 bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
     if (!instance_) {
         bool initSdkSuccess = true;
-        string data_file_path = "";
         string server_url = config.server_url;
         string appid = config.appid;
         if (server_url.empty()) {
@@ -240,7 +239,6 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
         if (dataTaskQue == nullptr) {
             ta_cpp_helper::printSDKLog("[ThinkingData] Error:  Failed to allocate memory for dataTaskQue");
             initSdkSuccess = false;
-//            return false;
         }
 
 
@@ -250,26 +248,27 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
             return false;
         }
 
+
         bool initStatus;
         TASqliteDataQueue* sqlite = new (std::nothrow) TASqliteDataQueue(appid,initStatus,config.enableEncrypt,config.version,config.publicKey,config.databasePath);
         if (sqlite == nullptr || !initStatus) {
             ta_cpp_helper::printSDKLog("[ThinkingData] Error: Failed to allocate memory for TASqliteDataQueue Init");
             initSdkSuccess = false;
-//            return false;
+            ins->staging_file_path_ = "";
+        }else{
+            ins->staging_file_path_ = config.databasePath;
         }
 
         TAHttpSend* httpSend = new (std::nothrow) TAHttpSend(server_url, appid);
         if (httpSend == nullptr) {
             ta_cpp_helper::printSDKLog("[ThinkingData] Error: Failed to allocate memory for TAHttpSend Init");
             initSdkSuccess = false;
-//            return false;
         }
 
         TDSystemInfo* tdSystemInfo = new (std::nothrow) TDSystemInfo();
         if(tdSystemInfo == nullptr){
             ta_cpp_helper::printSDKLog("[ThinkingData] Error: Failed to allocate memory for TDTimeCalibrated Init");
             initSdkSuccess = false;
-//            return false;
         }
 
         // init dataTaskQue networkTaskQue
@@ -290,7 +289,6 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
             if (dataTaskQue == nullptr) {
                 ta_cpp_helper::printSDKLog("[ThinkingEngine] Failed to allocate memory for networkTaskQue");
                 initSdkSuccess = false;
-//                return false;
             }
             TATaskQueue::m_ta_networkTaskQue = networkTaskQue;
             TATaskQueue::m_ta_networkTaskQue->Start();
@@ -299,17 +297,16 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
             if(ftask == nullptr){
                 ta_cpp_helper::printSDKLog("[ThinkingData] Error: Failed to allocate memory for TDFlushTask Init");
                 initSdkSuccess = false;
-//                return false;
             }
             instance_->flushTask = ftask;
             instance_->flushTask->Start();
         }
 
         // get local data
-        string accountId = ta_cpp_helper::loadAccount(appid.c_str(), data_file_path.c_str());
-        string distinctId = ta_cpp_helper::loadDistinctId(appid.c_str(), data_file_path.c_str());
+        string accountId = ta_cpp_helper::loadAccount(appid.c_str(), instance_->staging_file_path_.c_str());
+        string distinctId = ta_cpp_helper::loadDistinctId(appid.c_str(), instance_->staging_file_path_.c_str());
         string deviceId = ta_cpp_helper::getDeviceID();
-        string oldSuperPropertyString = ta_cpp_helper::loadSuperProperty(appid.c_str(), data_file_path.c_str());
+        string oldSuperPropertyString = ta_cpp_helper::loadSuperProperty(appid.c_str(), instance_->staging_file_path_.c_str());
 
         if (accountId.length() != 0)  {
             instance_->account_id_ = accountId;
@@ -342,6 +339,7 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
             ta_cpp_helper::printSDKLog(result);
         }else{
             UnInit();
+            return false;
         }
     }
 
@@ -636,10 +634,10 @@ void ThinkingAnalyticsAPI::SetSuperProperty(const TDJSONObject &properties){
             char* str = G2U(superProperty.c_str());;
             superProperty = string(str);
             delete str;
-            ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), superProperty.c_str());
+            ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), superProperty.c_str(),instance_->staging_file_path_.c_str());
 
         } else {
-            ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), superProperty.c_str());
+            ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), superProperty.c_str(),instance_->staging_file_path_.c_str());
         }
 #else
         ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), superProperty.c_str());
@@ -666,7 +664,7 @@ void ThinkingAnalyticsAPI::ClearSuperProperty(){
     if (instance_) {
         ta_superProperty_mtx.lock();
         instance_->m_superProperties.Clear();
-        ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), TDJSONObject::ToJson(instance_->m_superProperties).c_str());
+        ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), TDJSONObject::ToJson(instance_->m_superProperties).c_str(),instance_->staging_file_path_.c_str());
         ta_superProperty_mtx.unlock();
     }
 }
@@ -676,7 +674,7 @@ void ThinkingAnalyticsAPI::UnsetSuperProperties(const string &propertyName) {
         ta_superProperty_mtx.lock();
         instance_->m_superProperties.Remove(propertyName);
         string superProperty = TDJSONObject::ToJson(instance_->m_superProperties);
-        ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), superProperty.c_str());
+        ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), superProperty.c_str(),instance_->staging_file_path_.c_str());
         ta_superProperty_mtx.unlock();
     }
 }
