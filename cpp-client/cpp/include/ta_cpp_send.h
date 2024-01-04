@@ -78,7 +78,7 @@ namespace thinkingdata {
 
         friend class ThinkingAnalyticsAPI;
 
-        static const int kRequestTimeoutSecond = 3;
+        static const int kRequestTimeoutSecond = 30;
         string server_url_;
         string configUrl;
         string appid_;

@@ -17,7 +17,7 @@ namespace thinkingdata {
     using std::tuple;
     char* G2U(const char* gb2312);
 
-    TASqliteDataQueue::TASqliteDataQueue(std::string appid,bool &initStatus,bool enableCrypt,int v,string &pKey): m_appid(appid), m_allmessagecount(0) {
+    TASqliteDataQueue::TASqliteDataQueue(std::string appid,bool &initStatus,bool enableCrypt,int v,string &pKey,string &dbPath): m_appid(appid), m_allmessagecount(0) {
 
         isStop = false;
         if(enableCrypt){
@@ -27,7 +27,7 @@ namespace thinkingdata {
             encrypt = new TDRSAEncrypt();
             encrypt->enableEncrypt = false;
         }
-        int openDBStatus = sqlite3_open(dataBaseFilePath.c_str(), &ta_database);
+        int openDBStatus = sqlite3_open((dbPath+dataBaseFilePath).c_str(), &ta_database);
         if (openDBStatus)
         {
             ta_cpp_helper::printSDKLog("[ThinkingData] Error: Can't open database: ");
@@ -50,7 +50,9 @@ namespace thinkingdata {
             if (createDataTable != SQLITE_OK)
             {
                 ta_cpp_helper::printSDKLog("[ThinkingData] Error: SQL error:");
-                ta_cpp_helper::printSDKLog(createDataTableErrMsg);
+                if(createDataTableErrMsg != nullptr){
+                    ta_cpp_helper::printSDKLog(createDataTableErrMsg);
+                }
                 sqlite3_free(createDataTableErrMsg);
                 initStatus = false;
             }

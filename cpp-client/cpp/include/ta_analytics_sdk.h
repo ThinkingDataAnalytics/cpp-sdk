@@ -16,7 +16,7 @@
 #include <utility>
 #include <vector>
 #include "ta_json_object.h"
-#define TD_LIB_VERSION "1.3.9"
+#define TD_LIB_VERSION "1.4.0"
 
 #define TD_LIB_NAME "Cpp"
 
@@ -327,6 +327,7 @@ public:
     TDMode mode = TDMode::TD_NORMAL;
     int databaseLimit = 0;
     int dataExpression = 0;
+    string databasePath;
     ~TDConfig();
 };
 

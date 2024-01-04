@@ -24,7 +24,7 @@ namespace thinkingdata {
         bool isStop;
         sqlite3* ta_database;
         TDRSAEncrypt* encrypt;
-        TASqliteDataQueue(string appid,bool &initStatus,bool enableCrypt,int v,string &pKey);
+        TASqliteDataQueue(string appid,bool &initStatus,bool enableCrypt,int v,string &pKey,string &dbPath);
         int addObject(string event, string appid);
         void getFirstRecords(int recordSize, string appid,vector<tuple<string, string>>& records);
         bool removeData(vector<string> uuids);

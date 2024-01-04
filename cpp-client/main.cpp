@@ -126,6 +126,7 @@ int main(){
     config.mode = TDMode::TD_NORMAL;
     config.databaseLimit = 3000;
     config.dataExpression = 15;
+//    config.databasePath= "D:\\llbcode\\1.4.0\\db\\";
     config.EnableEncrypt(1,"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAti6FnWGv7Lggzg/R8hQa4GEtd2ucfntqo6Xkf1sPwCIfndr2u6KGPhWQ24bFUKgtNLDuKnUAg1C/OEEL8uONJBdbX9XpckO67tRPSPrY3ufNIxsCJ9td557XxUsnebkOZ+oC1Duk8/ENx1pRvU6S4c+UYd6PH8wxw1agD61oJ0ju3CW0aZNZ2xKcWBcIU9KgYTeUtawrmGU5flod88CqZc8VKB1+nY0tav023jvxwkM3zgQ6vBWIU9/aViGECB98YEzJfZjcOTD6zvqsZc/WRnUNhBHFPGEwc8ueMvzZNI+FP0pUFLVRwVoYbj/tffKbxGExaRFIcgP73BIW6/6nQwIDAQAB");
     ThinkingAnalyticsAPI::Init(config);
     ThinkingAnalyticsAPI::SetDynamicSuperProperties(GetDynamicSuperProperties);

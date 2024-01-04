@@ -215,6 +215,7 @@ void ThinkingAnalyticsAPI::fetchRemoteConfigCallback(bool calibrateTime,bool enc
 
 bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
     if (!instance_) {
+        bool initSdkSuccess = true;
         string data_file_path = "";
         string server_url = config.server_url;
         string appid = config.appid;
@@ -238,7 +239,8 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
         TATaskQueue* dataTaskQue = new (std::nothrow) TATaskQueue();
         if (dataTaskQue == nullptr) {
             ta_cpp_helper::printSDKLog("[ThinkingData] Error:  Failed to allocate memory for dataTaskQue");
-            return false;
+            initSdkSuccess = false;
+//            return false;
         }
 
 
@@ -249,22 +251,25 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
         }
 
         bool initStatus;
-        TASqliteDataQueue* sqlite = new (std::nothrow) TASqliteDataQueue(appid,initStatus,config.enableEncrypt,config.version,config.publicKey);
+        TASqliteDataQueue* sqlite = new (std::nothrow) TASqliteDataQueue(appid,initStatus,config.enableEncrypt,config.version,config.publicKey,config.databasePath);
         if (sqlite == nullptr || !initStatus) {
             ta_cpp_helper::printSDKLog("[ThinkingData] Error: Failed to allocate memory for TASqliteDataQueue Init");
-            return false;
+            initSdkSuccess = false;
+//            return false;
         }
 
         TAHttpSend* httpSend = new (std::nothrow) TAHttpSend(server_url, appid);
         if (httpSend == nullptr) {
             ta_cpp_helper::printSDKLog("[ThinkingData] Error: Failed to allocate memory for TAHttpSend Init");
-            return false;
+            initSdkSuccess = false;
+//            return false;
         }
 
         TDSystemInfo* tdSystemInfo = new (std::nothrow) TDSystemInfo();
         if(tdSystemInfo == nullptr){
             ta_cpp_helper::printSDKLog("[ThinkingData] Error: Failed to allocate memory for TDTimeCalibrated Init");
-            return false;
+            initSdkSuccess = false;
+//            return false;
         }
 
         // init dataTaskQue networkTaskQue
@@ -284,7 +289,8 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
             TATaskQueue* networkTaskQue = new (std::nothrow) TATaskQueue();
             if (dataTaskQue == nullptr) {
                 ta_cpp_helper::printSDKLog("[ThinkingEngine] Failed to allocate memory for networkTaskQue");
-                return false;
+                initSdkSuccess = false;
+//                return false;
             }
             TATaskQueue::m_ta_networkTaskQue = networkTaskQue;
             TATaskQueue::m_ta_networkTaskQue->Start();
@@ -292,7 +298,8 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
             TDFlushTask* ftask = new (std::nothrow) TDFlushTask();
             if(ftask == nullptr){
                 ta_cpp_helper::printSDKLog("[ThinkingData] Error: Failed to allocate memory for TDFlushTask Init");
-                return false;
+                initSdkSuccess = false;
+//                return false;
             }
             instance_->flushTask = ftask;
             instance_->flushTask->Start();
@@ -327,12 +334,15 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
         }
         tacJSON_Delete(root_obj);
 
-        //Pull configuration information from the server
-        thread t = thread(fetchRemoteConfigCallback,config.enableAutoCalibrated,config.enableEncrypt);
-        t.detach();
-
-        string result = "[ThinkingData] Info: ThinkingData SDK initialize success, AppId: = " + appid + ", ServerUrl = " + server_url + ", DeviceId = " + ta_cpp_helper::getDeviceID()+ ", LibVersion  = " + TD_LIB_VERSION;
-        ta_cpp_helper::printSDKLog(result);
+        if(initSdkSuccess){
+            //Pull configuration information from the server
+            thread t = thread(fetchRemoteConfigCallback,config.enableAutoCalibrated,config.enableEncrypt);
+            t.detach();
+            string result = "[ThinkingData] Info: ThinkingData SDK initialize success, AppId: = " + appid + ", ServerUrl = " + server_url + ", DeviceId = " + ta_cpp_helper::getDeviceID()+ ", LibVersion  = " + TD_LIB_VERSION;
+            ta_cpp_helper::printSDKLog(result);
+        }else{
+            UnInit();
+        }
     }
 
     return true;
