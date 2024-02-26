@@ -111,7 +111,7 @@ namespace thinkingdata {
                 m_sqliteQueue->getFirstRecords(50, m_appid,records);
                 ta_sqlite_mtx.unlock();
             } else {
-                break;
+                return;
             }
         }
     }

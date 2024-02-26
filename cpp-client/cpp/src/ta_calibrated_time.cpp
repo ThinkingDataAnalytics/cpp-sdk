@@ -67,7 +67,7 @@ namespace thinkingdata {
             int screenHeight = GetSystemMetrics(SM_CYSCREEN);
             presetProperties.SetNumber("#screen_height",screenHeight);
             //get system language
-            LANGID language = GetSystemDefaultUILanguage();
+//            LANGID language = GetSystemDefaultUILanguage();
             wchar_t buffer[LOCALE_NAME_MAX_LENGTH];
             if (GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SISO639LANGNAME, buffer, LOCALE_NAME_MAX_LENGTH)) {
                 std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
