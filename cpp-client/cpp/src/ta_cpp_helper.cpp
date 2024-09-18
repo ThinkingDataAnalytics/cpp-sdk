@@ -104,6 +104,26 @@ namespace thinkingdata {
     #endif
     }
 
+    void ta_cpp_helper::printSDKLog(TDLogLevel level, const string &log) {
+        string logPrefix = "[ThinkingData] ";
+        string detailLog;
+        switch (level) {
+            case TDLogLevel::TDDEBUG:
+                detailLog = logPrefix + "Debug: " + log;
+                break;
+            case TDLogLevel::TDINFO:
+                detailLog = logPrefix + "Info: " + log;
+                break;
+            case TDLogLevel::TDERROR:
+                detailLog = logPrefix + "Error: " + log;
+                break;
+            default:
+                detailLog = logPrefix + "Unknown: " + log;
+                break;
+        }
+        printSDKLog(detailLog);
+    }
+
     void ta_cpp_helper::printSDKLog(const string &log) {
         TALogType type = TAEnableLog::getTALogType();
         if (type == LOGCONSOLE) {
@@ -216,4 +236,12 @@ namespace thinkingdata {
     #endif
     }
 
+    bool ta_cpp_helper::isStringOnlySpaces(const std::string &str) {
+        for (char c : str) {
+            if (!std::isspace(c)) {
+                return false;
+            }
+        }
+        return true;
+    }
 }

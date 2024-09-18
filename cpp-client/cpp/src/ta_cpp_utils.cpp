@@ -4,9 +4,9 @@
 #include <iostream>
 #include <iomanip>
 
-#if defined(_WIN32) && defined(_MSC_VER)
-#include <atlstr.h>
-#endif
+//#if defined(_WIN32) && defined(_MSC_VER)
+//#include <atlstr.h>
+//#endif
 #if defined(_WIN32)
 #include <windows.h>
 #elif defined(__APPLE__)
@@ -17,6 +17,22 @@ namespace thinkingdata {
 
     static bool _taEnableLog;
     static TALogType _logType = LOGNONE;
+    static string _lib = "CPP";
+    static string _libVersion = "1.4.4-beta.1";
+
+    void TALibInfo::setCustomLibInfo(const std::string &lib, const std::string &libVersion) {
+        _lib = lib;
+        _libVersion = libVersion;
+    }
+
+    string TALibInfo::getLibName() {
+        return _lib;
+    }
+
+    string TALibInfo::getLibVersion() {
+        return _libVersion;
+    }
+
     //mutex ta_enable_log_mutex;
     bool thinkingdata::TAEnableLog::getEnableLog() {
 //        bool _ta_enable_log = false;

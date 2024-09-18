@@ -78,8 +78,9 @@ namespace thinkingdata {
         ~TADebugTask();
         void DoTask();
         void Stop();
-        TADebugTask(TAHttpSend *httpSend, string appid,string deviceId,string m_event,bool isDebugOnly);
+        TADebugTask(TASqliteDataQueue *sqliteQueue, TAHttpSend *httpSend, string appid,string deviceId,string m_event,bool isDebugOnly);
     private:
+        TASqliteDataQueue *m_sqliteQueue;
         TAHttpSend *m_httpSend;
         string m_appid;
         string m_deviceId;
@@ -92,6 +93,7 @@ namespace thinkingdata {
     public:
         static TATaskQueue *m_ta_dataTaskQue;
         static TATaskQueue *m_ta_networkTaskQue;
+        static TATaskQueue *m_ta_debugTaskQue;
 
         bool isStop = false;
         TATaskQueue();

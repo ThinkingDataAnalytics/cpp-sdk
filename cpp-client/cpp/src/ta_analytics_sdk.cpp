@@ -13,6 +13,10 @@
 #include "ta_calibrated_time.h"
 #include "ta_flush_task.h"
 #include <thread>
+#include "ta_error_msg.h"
+#include <ctime>
+#include <cmath>
+
 #if defined(_WIN32)
 #include <windows.h>
 #include <iostream>
@@ -38,6 +42,7 @@ const static string TD_EVENT_TYPE_USER_UNIQ_APPEND     = "user_uniq_append";
 
 
 namespace thinkingdata {
+    using namespace thinkingdata;
 
     mutex ta_superProperty_mtx;
     mutex ta_distinct_mtx;
@@ -114,56 +119,8 @@ TDOverWritableEvent::TDOverWritableEvent(const string & eventName, const TDJSONO
     this->mType = OVERWRITABLE;
 }
 
-
-
-void TDJSONObject::ValueNode::JsonNodeToString(const TDJSONObject::ValueNode &node,
-                                      string *buffer) {
-    switch (node.node_type_) {
-        case NUMBER:
-            DumpNumber(node.value_.number_value, buffer);
-            break;
-        case INT:
-            DumpNumber(node.value_.int_value, buffer);
-            break;
-        case STRING:
-            DumpString(node.string_data_, buffer);
-            break;
-        case LIST:
-            DumpList(node.list_data_, buffer);
-            break;
-        case BOOL:
-            *buffer += (node.value_.bool_value ? "true" : "false");
-            break;
-        case OBJECT:
-            DumpNode(node.object_data_, buffer);
-            break;
-        case DATETIME:
-            DumpDateTime(node.value_.date_time_value.seconds,
-                         node.value_.date_time_value.milliseconds, buffer);
-            break;
-        case OBJECTS:
-            DumpList(node.list_obj_, buffer);
-            break;
-        default:
-            break;
-    }
-}
-
-void TDJSONObject::ValueNode::DumpNumber(double value, string *buffer) {
-    ostringstream buf;
-    buf.imbue(locale("C"));
-    buf << value;
-    *buffer += buf.str();
-}
-
-void TDJSONObject::ValueNode::DumpNumber(int64_t value, string *buffer) {
-    ostringstream buf;
-    buf.imbue(locale("C"));
-    buf << value;
-    *buffer += buf.str();
-}
-TDConfig::~TDConfig() {
-
+TDConfig::TDConfig() {
+    this->zoneOffset = GetLocalTimeZoneOffset();
 }
 
 void TDConfig::EnableEncrypt(int version, const string &publicKey) {
@@ -172,6 +129,31 @@ void TDConfig::EnableEncrypt(int version, const string &publicKey) {
         this->publicKey = publicKey;
         this->enableEncrypt = true;
     }
+}
+
+double TDConfig::GetLocalTimeZoneOffset() {
+    auto now = std::chrono::system_clock::now();
+    std::time_t now_time_t = std::chrono::system_clock::to_time_t(now);
+
+    std::tm utc_tm;
+#if defined(_WIN32)
+    gmtime_s(&utc_tm, &now_time_t);
+#else
+    gmtime_r(&now_time_t, &utc_tm);
+#endif
+
+    std::time_t utc_time_t = mktime(&utc_tm);
+    std::tm local_tm;
+#if defined(_WIN32)
+    localtime_s(&local_tm, &now_time_t);
+#else
+    localtime_r(&now_time_t, &local_tm);
+#endif
+
+    long offset_seconds = (now_time_t - utc_time_t) + (local_tm.tm_isdst ? 3600 : 0);
+    double offset_hours = std::floor(offset_seconds / 3600.0);
+    double offset_minutes = std::floor((offset_seconds % 3600) / 60.0);
+    return offset_hours + offset_minutes / 60.0;
 }
 
 ThinkingAnalyticsAPI *ThinkingAnalyticsAPI::instance_ = NULL;
@@ -219,12 +201,12 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
         string server_url = config.server_url;
         string appid = config.appid;
         if (server_url.empty()) {
-            ta_cpp_helper::printSDKLog("[ThinkingData] Error: serverUrl can not be empty");
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, "serverUrl can not be empty");
             return false;
         }
 
         if (appid.empty()) {
-            ta_cpp_helper::printSDKLog("[ThinkingData] Error: appId can not be empty");
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, "appId can not be empty");
             return false;
         }
 
@@ -237,14 +219,14 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
 
         TATaskQueue* dataTaskQue = new (std::nothrow) TATaskQueue();
         if (dataTaskQue == nullptr) {
-            ta_cpp_helper::printSDKLog("[ThinkingData] Error:  Failed to allocate memory for dataTaskQue");
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, "Failed to allocate memory for dataTaskQue");
             initSdkSuccess = false;
         }
 
 
         ThinkingAnalyticsAPI* ins = new (std::nothrow) ThinkingAnalyticsAPI(server_url, appid);
         if (ins == nullptr) {
-            ta_cpp_helper::printSDKLog("[ThinkingData] Error: Failed to allocate memory for ThinkingAnalyticsAPI Init");
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, "Failed to allocate memory for ThinkingAnalyticsAPI Init");
             return false;
         }
 
@@ -252,7 +234,7 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
         bool initStatus;
         TASqliteDataQueue* sqlite = new (std::nothrow) TASqliteDataQueue(appid,initStatus,config.enableEncrypt,config.version,config.publicKey,config.databasePath);
         if (sqlite == nullptr || !initStatus) {
-            ta_cpp_helper::printSDKLog("[ThinkingData] Error: Failed to allocate memory for TASqliteDataQueue Init");
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, "Failed to allocate memory for TASqliteDataQueue Init");
             initSdkSuccess = false;
             ins->staging_file_path_ = "";
         }else{
@@ -261,19 +243,28 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
 
         TAHttpSend* httpSend = new (std::nothrow) TAHttpSend(server_url, appid);
         if (httpSend == nullptr) {
-            ta_cpp_helper::printSDKLog("[ThinkingData] Error: Failed to allocate memory for TAHttpSend Init");
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, "Failed to allocate memory for TAHttpSend Init");
             initSdkSuccess = false;
         }
 
         TDSystemInfo* tdSystemInfo = new (std::nothrow) TDSystemInfo();
         if(tdSystemInfo == nullptr){
-            ta_cpp_helper::printSDKLog("[ThinkingData] Error: Failed to allocate memory for TDTimeCalibrated Init");
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, "Failed to allocate memory for TDTimeCalibrated Init");
             initSdkSuccess = false;
         }
 
-        // init dataTaskQue networkTaskQue
+        // init dataTaskQue
         TATaskQueue::m_ta_dataTaskQue = dataTaskQue;
         TATaskQueue::m_ta_dataTaskQue->Start();
+
+        // init networkTaskQue
+        TATaskQueue* networkTaskQue = new (std::nothrow) TATaskQueue();
+        if (dataTaskQue == nullptr) {
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, "Failed to allocate memory for networkTaskQue");
+            initSdkSuccess = false;
+        }
+        TATaskQueue::m_ta_networkTaskQue = networkTaskQue;
+        TATaskQueue::m_ta_networkTaskQue->Start();
 
         // init TA instance
         instance_ = ins;
@@ -283,23 +274,25 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
         instance_->m_sqlite = sqlite;
         instance_->tdSystemInfo = tdSystemInfo;
         instance_->mode = config.mode;
+        TDJSONObject::ValueNode::SetZoneOffset(config.zoneOffset);
+        instance_->tdSystemInfo->SetZoneOffset(config.zoneOffset);
 
-        if(config.mode == TDMode::TD_NORMAL) {
-            TATaskQueue* networkTaskQue = new (std::nothrow) TATaskQueue();
-            if (dataTaskQue == nullptr) {
-                ta_cpp_helper::printSDKLog("[ThinkingEngine] Failed to allocate memory for networkTaskQue");
-                initSdkSuccess = false;
-            }
-            TATaskQueue::m_ta_networkTaskQue = networkTaskQue;
-            TATaskQueue::m_ta_networkTaskQue->Start();
+        TDFlushTask* ftask = new (std::nothrow) TDFlushTask();
+        if(ftask == nullptr){
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, "Failed to allocate memory for TDFlushTask Init");
+            initSdkSuccess = false;
+        }
+        instance_->flushTask = ftask;
+        instance_->flushTask->Start();
 
-            TDFlushTask* ftask = new (std::nothrow) TDFlushTask();
-            if(ftask == nullptr){
-                ta_cpp_helper::printSDKLog("[ThinkingData] Error: Failed to allocate memory for TDFlushTask Init");
-                initSdkSuccess = false;
+        if(config.mode != TDMode::TD_NORMAL) {
+            // init debugTaskQue
+            TATaskQueue* debugTaskQue = new (std::nothrow) TATaskQueue();
+            if (debugTaskQue == nullptr) {
+                ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, "Failed to allocate memory for debugTaskQue");
             }
-            instance_->flushTask = ftask;
-            instance_->flushTask->Start();
+            TATaskQueue::m_ta_debugTaskQue = debugTaskQue;
+            TATaskQueue::m_ta_debugTaskQue->Start();
         }
 
         // get local data
@@ -315,7 +308,14 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
         if (distinctId.size() != 0)  {
             instance_->distinct_id_ = distinctId;
         } else {
-            instance_->distinct_id_ = deviceId;
+            auto now = std::chrono::system_clock::now();
+            auto timestamp = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
+            distinctId = deviceId + "_" + to_string(timestamp);
+            const char *path = instance_->staging_file_path_.c_str();
+            ta_distinct_mtx.lock();
+            ta_cpp_helper::updateDistinctId(instance_->appid_.c_str(), distinctId.c_str(), path);
+            ta_distinct_mtx.unlock();
+            instance_->distinct_id_ = distinctId;
         }
 
         if (deviceId.size() != 0) {
@@ -335,8 +335,10 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
             //Pull configuration information from the server
             thread t = thread(fetchRemoteConfigCallback,config.enableAutoCalibrated,config.enableEncrypt);
             t.detach();
-            string result = "[ThinkingData] Info: ThinkingData SDK initialize success, AppId: = " + appid + ", ServerUrl = " + server_url + ", DeviceId = " + ta_cpp_helper::getDeviceID()+ ", LibVersion  = " + TD_LIB_VERSION;
+            string result = "[ThinkingData] Info: ThinkingData SDK initialize success, AppId: = " + appid + ", ServerUrl = " + server_url + ", DeviceId = " + ta_cpp_helper::getDeviceID()+ ", LibVersion  = " + TALibInfo::getLibVersion();
             ta_cpp_helper::printSDKLog(result);
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, result);
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, TD_INIT_SUCCESS);
         }else{
             UnInit();
             return false;
@@ -359,14 +361,18 @@ bool ThinkingAnalyticsAPI::Init(const string &server_url,
 }
 
 void ThinkingAnalyticsAPI::CalibrateTime(int64_t &timestamp) {
-    if(instance_){
+    if(instance_ && timestamp > 0){
         instance_->tdSystemInfo->enableTimeCalibrated(timestamp);
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, TD_CALIBRATE_TIME_SUCCESS);
     }
 }
 
 void ThinkingAnalyticsAPI::EnableLog(bool enable) {
     if(enable){
         TAEnableLog::setTALogType(LOGCONSOLE);
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, TD_ENABLE_LOG_SUCCESS);
+    } else {
+        TAEnableLog::setTALogType(LOGNONE);
     }
 }
 
@@ -376,7 +382,12 @@ void ThinkingAnalyticsAPI::EnableLogType(TALogType type) {
 
 void ThinkingAnalyticsAPI::AddUser(string eventType, const TDJSONObject &properties)
 {
-    AddEvent(eventType, "", properties, "", "");
+    bool result = AddEvent(eventType, "", properties, "", "");
+    if (result) {
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, TD_USER_EVENT_SUCCESS);
+    } else {
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, TD_USER_EVENT_FAILED);
+    }
 }
 
 
@@ -401,6 +412,7 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
 
     if (isTrackEvent) {
         ta_superProperty_mtx.lock();
+        propertyDic.MergeFrom(instance_->tdSystemInfo->presetProperties);
         propertyDic.MergeFrom(m_superProperties);
         ta_superProperty_mtx.unlock();
         if(instance_->dynamicSuperProperties != nullptr){
@@ -416,9 +428,7 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
             finalDic.SetString("#first_check_id", ta_cpp_helper::getDeviceID().c_str());
         }
     } else if (eventType == TD_EVENT_TYPE_TRACK_UPDATE || eventType == TD_EVENT_TYPE_TRACK_OVERWRITE) {
-        if (event_id.size() > 0) {
-            finalDic.SetString("#event_id", event_id);
-        }
+        finalDic.SetString("#event_id", event_id);
     }
 
     timeb t;
@@ -467,8 +477,6 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
             instance_->trackTimer.erase(event_name);
         }
         ta_timer_mtx.unlock();
-
-        propertyDic.MergeFrom(instance_->tdSystemInfo->presetProperties);
     }
     
     propertyDic.MergeFrom(properties);
@@ -485,7 +493,7 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
         shared_ptr<TAITask> task(sqiteInsetTask);
         TATaskQueue::m_ta_dataTaskQue->PushTask(task);
     }else{
-        TADebugTask *debugTask = new (std::nothrow) TADebugTask(httpSend_,appid_,device_id_,json_record,instance_->mode == TDMode::TD_DEBUG_ONLY);
+        TADebugTask *debugTask = new (std::nothrow) TADebugTask(m_sqlite, httpSend_,appid_,device_id_,json_record,instance_->mode == TDMode::TD_DEBUG_ONLY);
         if (debugTask == nullptr) {
             ta_cpp_helper::printSDKLog("[ThinkingEngine] Failed to allocate memory for TADebugTask Init");
             return false;
@@ -511,6 +519,7 @@ void ThinkingAnalyticsAPI::Flush() {
         if(instance_->mode == TDMode::TD_NORMAL){
             instance_->InnerFlush();
         }
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, TD_FLUSH_SUCCESS);
     }
 }
 
@@ -523,6 +532,7 @@ void ThinkingAnalyticsAPI::registerTECallback(void (*p)(int, const string&)) {
 void ThinkingAnalyticsAPI::SetDynamicSuperProperties(DynamicSuperProperties dynamicSuperProperties) {
     if(instance_){
         instance_->dynamicSuperProperties = dynamicSuperProperties;
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, TD_SET_DYNAMIC_PROPERTIES_SUCCESS);
     }
 }
 
@@ -536,46 +546,72 @@ vector<void(*)(int,const string&)> ThinkingAnalyticsAPI::getTECallback(){
 
 void ThinkingAnalyticsAPI::Track(const string &event_name, const TDJSONObject &properties) {
     if (instance_) {
-        instance_->AddEvent(TD_EVENT_TYPE,
+        bool  result = instance_->AddEvent(TD_EVENT_TYPE,
                             event_name,
                             properties,
                             ""
                             "");
+        if (result) {
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, TD_TRACK_SUCCESS);
+        } else {
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, TD_TRACK_FAILED);
+        }
+    } else {
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, TD_NOT_INITIALIZED);
     }
 }
 
 
 void ThinkingAnalyticsAPI::Track(TDFirstEvent* event) {
     if (instance_) {
-        instance_->AddEvent(TD_EVENT_TYPE_TRACK_FIRST,
+        bool result = instance_->AddEvent(TD_EVENT_TYPE_TRACK_FIRST,
                             event->mEventName,
                             event->mProperties,
                             event->mExtraId,
                             "");
+        if (result) {
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, TD_TRACK_SUCCESS);
+        } else {
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, TD_TRACK_FAILED);
+        }
+    } else {
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, TD_NOT_INITIALIZED);
     }
 }
 
 void ThinkingAnalyticsAPI::Track(TDUpdatableEvent* event) {
     if (instance_) {
-        instance_->AddEvent(TD_EVENT_TYPE_TRACK_UPDATE,
+        bool result = instance_->AddEvent(TD_EVENT_TYPE_TRACK_UPDATE,
                             event->mEventName,
                             event->mProperties,
                             "",
                             event->mExtraId);
+        if (result) {
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, TD_TRACK_SUCCESS);
+        } else {
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, TD_TRACK_FAILED);
+        }
+    } else {
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, TD_NOT_INITIALIZED);
     }
 }
 
 void ThinkingAnalyticsAPI::Track(TDOverWritableEvent* event) {
     if (instance_) {
-        instance_->AddEvent(TD_EVENT_TYPE_TRACK_OVERWRITE,
+        bool result = instance_->AddEvent(TD_EVENT_TYPE_TRACK_OVERWRITE,
                             event->mEventName,
                             event->mProperties,
                             "",
                             event->mExtraId);
+        if (result) {
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, TD_TRACK_SUCCESS);
+        } else {
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, TD_TRACK_FAILED);
+        }
+    } else {
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, TD_NOT_INITIALIZED);
     }
 }
-
-
 
 void ThinkingAnalyticsAPI::Track(const string &event_name) {
     TDJSONObject properties_node;
@@ -585,13 +621,28 @@ void ThinkingAnalyticsAPI::Track(const string &event_name) {
 
 void ThinkingAnalyticsAPI::Login(const string &login_id) {
     if (instance_) {
+        if (login_id.empty()) {
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, TD_LOGIN_FAILED + " login_id is empty");
+            return;
+        }
+        if (ta_cpp_helper::isStringOnlySpaces(login_id)) {
+            ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, TD_LOGIN_FAILED + " login_id is spaces");
+            return;
+        }
+
         ta_account_mtx.lock();
         instance_->account_id_ = login_id;
 		const char *path = instance_->staging_file_path_.c_str();
         ta_cpp_helper::updateAccount(instance_->appid_.c_str(), login_id.c_str(), path);
         ta_account_mtx.unlock();
-        ta_cpp_helper::printSDKLog("[ThinkingData] Info: Login SDK, AccountId = "+login_id);
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, TD_LOGIN_SUCCESS + " AccountId = " + login_id);
+    } else {
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, TD_LOGIN_FAILED);
     }
+}
+
+string ThinkingAnalyticsAPI::GetAccountId() {
+    return instance_ ? instance_->account_id_ :  "";
 }
 
 void ThinkingAnalyticsAPI::LogOut() {
@@ -602,24 +653,22 @@ void ThinkingAnalyticsAPI::LogOut() {
 		const char *path = instance_->staging_file_path_.c_str();
         ta_cpp_helper::updateAccount(instance_->appid_.c_str(), login_id.c_str(), path);
         ta_account_mtx.unlock();
-        ta_cpp_helper::printSDKLog("[ThinkingData] Info: Logout SDK");
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, TD_LOGOUT_SUCCESS);
     }
 }
 
 void ThinkingAnalyticsAPI::Identify(const string &distinct_id) {
-    if (instance_) {
-        ta_distinct_mtx.lock();
-        if (distinct_id.size()>0) {
-            instance_->distinct_id_ = distinct_id;
-        }
-        else {
-            instance_->distinct_id_ = instance_->device_id_;
-        }
-		const char *path = instance_->staging_file_path_.c_str();
-        ta_cpp_helper::updateDistinctId(instance_->appid_.c_str(), distinct_id.c_str(), path);
-        ta_distinct_mtx.unlock();
-        ta_cpp_helper::printSDKLog("[ThinkingData] Info: Setting distinct ID, DistinctId = "+distinct_id);
+    if (distinct_id.empty() || instance_ == nullptr) {
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, TD_DISTINCTID_FAILED);
+        return;
     }
+    ta_distinct_mtx.lock();
+    instance_->distinct_id_ = distinct_id;
+    const char *path = instance_->staging_file_path_.c_str();
+    ta_cpp_helper::updateDistinctId(instance_->appid_.c_str(), distinct_id.c_str(), path);
+    ta_distinct_mtx.unlock();
+    ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, "Setting distinct ID, DistinctId = " + distinct_id);
+    ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, TD_DISTINCTID_SUCCESS);
 }
 
 void ThinkingAnalyticsAPI::SetSuperProperty(const TDJSONObject &properties){
@@ -643,6 +692,7 @@ void ThinkingAnalyticsAPI::SetSuperProperty(const TDJSONObject &properties){
         ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), superProperty.c_str());
 #endif  
         ta_superProperty_mtx.unlock();
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, TD_SET_SUPER_PROPERTIES_SUCCESS);
     }
 }
 
@@ -666,6 +716,7 @@ void ThinkingAnalyticsAPI::ClearSuperProperty(){
         instance_->m_superProperties.Clear();
         ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), TDJSONObject::ToJson(instance_->m_superProperties).c_str(),instance_->staging_file_path_.c_str());
         ta_superProperty_mtx.unlock();
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, TD_CLEAR_SUPER_PROPERTIES_SUCCESS);
     }
 }
 
@@ -676,6 +727,7 @@ void ThinkingAnalyticsAPI::UnsetSuperProperties(const string &propertyName) {
         string superProperty = TDJSONObject::ToJson(instance_->m_superProperties);
         ta_cpp_helper::updateSuperProperty(instance_->appid_.c_str(), superProperty.c_str(),instance_->staging_file_path_.c_str());
         ta_superProperty_mtx.unlock();
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, TD_UNSET_SUPER_PROPERTIES_SUCCESS);
     }
 }
 
@@ -693,6 +745,7 @@ void ThinkingAnalyticsAPI::TimeEvent(const string &event_name) {
         ta_timer_mtx.lock();
         instance_->trackTimer[event_name] = getSystemElapsedRealTime();
         ta_timer_mtx.unlock();
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, TD_TIME_EVENT_SUCCESS + " EventName = " + event_name);
     }
 }
 
@@ -700,8 +753,9 @@ void ThinkingAnalyticsAPI::TimeEvent(const string &event_name) {
 void ThinkingAnalyticsAPI::UserSet(const TDJSONObject &properties) {
     if (instance_) {
         instance_->AddUser(TD_EVENT_TYPE_USER_SET, properties);
+    } else {
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, TD_NOT_INITIALIZED);
     }
-    
 }
 void ThinkingAnalyticsAPI::UserSetOnce(const TDJSONObject &properties) {
     if (instance_) {
@@ -749,8 +803,6 @@ string ThinkingAnalyticsAPI::StagingFilePath() {
 
 ThinkingAnalyticsAPI::ThinkingAnalyticsAPI(const string& server_url, const string& appid): server_url_(server_url), appid_(appid) {}
 
-ThinkingAnalyticsAPI::~ThinkingAnalyticsAPI() {}
-
 void ThinkingAnalyticsAPI::UnInit()
 {
     if (instance_ != nullptr)
@@ -761,12 +813,9 @@ void ThinkingAnalyticsAPI::UnInit()
             instance_->flushTask = nullptr;
         }
 
-        if (TATaskQueue::m_ta_dataTaskQue != nullptr) {
-            delete TATaskQueue::m_ta_dataTaskQue;
-        }
-        if (TATaskQueue::m_ta_networkTaskQue != nullptr) {
-            delete TATaskQueue::m_ta_networkTaskQue;
-        }
+        delete TATaskQueue::m_ta_dataTaskQue;
+        delete TATaskQueue::m_ta_networkTaskQue;
+        delete TATaskQueue::m_ta_debugTaskQue;
 
         if (instance_->httpSend_ != nullptr) {
             delete instance_->httpSend_;
@@ -790,4 +839,9 @@ void ThinkingAnalyticsAPI::UnInit()
     }
 }
 
+    void ThinkingAnalyticsAPI::SetCustomLibInfo(const string &libName, const string &libVersion) {
+        TALibInfo::setCustomLibInfo(libName, libVersion);
+    }
+
+    ThinkingAnalyticsAPI::~ThinkingAnalyticsAPI() {}
 }

@@ -16,9 +16,6 @@
 #include <utility>
 #include <vector>
 #include "ta_json_object.h"
-#define TD_LIB_VERSION "1.4.2"
-
-#define TD_LIB_NAME "Cpp"
 
 #ifdef _MSC_VER
 #if _MSC_VER >= 1600
@@ -103,6 +100,12 @@ public:
      * @param loginId account ID
      */
     static void Login(const string &login_id);
+
+    /**
+     * Get the account ID.
+     * @return account ID
+     */
+    static string GetAccountId();
 
     /**
      * Clearing the account ID will not upload user logout events.
@@ -265,9 +268,19 @@ public:
 
     static vector<void(*)(int,const string&)> getTECallback();
 
+    /**
+     * set custom lib info
+     * @param libName libName
+     * @param libVersion libVersion
+     */
+    static void SetCustomLibInfo(const string &libName, const string &libVersion);
+
     ~ThinkingAnalyticsAPI();
 
     static ThinkingAnalyticsAPI* instance_;
+
+public:
+    TDMode mode = TDMode::TD_NORMAL;
 
 private:
     /**
@@ -306,7 +319,6 @@ private:
     map<string, int64_t> trackTimer;
     vector<void(*)(int,const string&)> funcs;
     DynamicSuperProperties dynamicSuperProperties = nullptr;
-    TDMode mode = TDMode::TD_NORMAL;
 };
 
 enum EventType {
@@ -328,7 +340,10 @@ public:
     int databaseLimit = 0;
     int dataExpression = 0;
     string databasePath;
-    ~TDConfig();
+    double zoneOffset;
+public:
+    TDConfig();
+    double GetLocalTimeZoneOffset();
 };
 
 class ThinkingAnalyticsEvent

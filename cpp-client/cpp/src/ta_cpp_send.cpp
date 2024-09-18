@@ -4,12 +4,12 @@
 
 #include "ta_cpp_send.h"
 #include <string.h>
-#include <curl/curl.h>
 #include <zlib.h>
 #include "ta_json_object.h"
 #include "ta_cpp_utils.h"
 #include "ta_cpp_helper.h"
-
+#include "ta_cJSON.h"
+#include "ta_analytics_sdk.h"
 
 namespace thinkingdata {
 
@@ -55,7 +55,8 @@ namespace thinkingdata {
         return true;
     }
 
-    bool HttpSender::sendDebugData(const string &debugData) {
+    int HttpSender::sendDebugData(const string &debugData) {
+        int debugResult = -1;
         HeaderFields header_fields;
         header_fields["Content-Type"] = "application/x-www-form-urlencoded";
         header_fields["charset"] = "utf-8";
@@ -66,12 +67,23 @@ namespace thinkingdata {
             ta_cpp_helper::printSDKLog("ThinkingAnalytics SDK send failed: ");
             ta_cpp_helper::printSDKLog(response.body_);
             ta_cpp_helper::handleTECallback(1003,response.body_);
-            return false;
-        }else{
+            debugResult = -2;
+        } else {
             ta_cpp_helper::printSDKLog("[ThinkingData] Debug: Send event, Request = "+debugData);
             ta_cpp_helper::printSDKLog("[ThinkingData] Debug: Send event, Response = "+response.body_);
+            TDJSONObject jsonObject;
+            tacJSON* root_obj = nullptr;
+            root_obj = tacJSON_Parse(response.body_.c_str());
+            if (root_obj != nullptr && root_obj->type == tacJSON_Object) {
+                stringToTDJson(root_obj, jsonObject);
+                debugResult = static_cast<int>(jsonObject.properties_map_["errorLevel"].value_.number_value);
+            } else {
+                ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, "Debug data json error.");
+                debugResult = -2;
+            }
+            tacJSON_Delete(root_obj);
         }
-        return true;
+        return debugResult;
     }
 
     Response HttpSender::fetchRemoteConfig() {
@@ -212,12 +224,11 @@ namespace thinkingdata {
         return send_result;
     }
 
-    bool TAHttpSend::SendDebugData(const string& json_record) {
+    int TAHttpSend::SendDebugData(const string& json_record) {
         if(!sender_){
-            return false;
+            return -3;
         }
-        bool send_result = sender_->sendDebugData(json_record);
-        return send_result;
+        return sender_->sendDebugData(json_record);
     }
 
     Response TAHttpSend::fetchRemoteConfig() {
