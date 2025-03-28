@@ -12,7 +12,7 @@
 #include <uuid/uuid.h>
 #endif
 #include <mutex>
-
+#include <sys/timeb.h>
 
 namespace thinkingdata {
 
@@ -57,9 +57,9 @@ namespace thinkingdata {
         uuid[13] = '-';
         uuid[18] = '-';
         uuid[23] = '-';
-
- 
-        return uuid;
+        timeb t1;
+        ftime(&t1);
+        return uuid + to_string(t1.time*1000+ t1.millitm);
 #else
         std::string guid("");
         uuid_t uuid;
@@ -102,26 +102,6 @@ namespace thinkingdata {
     #elif defined(__APPLE__)
         ta_mac_tool::updateAccount(token, accountId);
     #endif
-    }
-
-    void ta_cpp_helper::printSDKLog(TDLogLevel level, const string &log) {
-        string logPrefix = "[ThinkingData] ";
-        string detailLog;
-        switch (level) {
-            case TDLogLevel::TDDEBUG:
-                detailLog = logPrefix + "Debug: " + log;
-                break;
-            case TDLogLevel::TDINFO:
-                detailLog = logPrefix + "Info: " + log;
-                break;
-            case TDLogLevel::TDERROR:
-                detailLog = logPrefix + "Error: " + log;
-                break;
-            default:
-                detailLog = logPrefix + "Unknown: " + log;
-                break;
-        }
-        printSDKLog(detailLog);
     }
 
     void ta_cpp_helper::printSDKLog(const string &log) {
@@ -236,12 +216,4 @@ namespace thinkingdata {
     #endif
     }
 
-    bool ta_cpp_helper::isStringOnlySpaces(const std::string &str) {
-        for (char c : str) {
-            if (!std::isspace(c)) {
-                return false;
-            }
-        }
-        return true;
-    }
 }

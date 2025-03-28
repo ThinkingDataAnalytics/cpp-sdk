@@ -14,7 +14,6 @@ using namespace std;
 
 namespace thinkingdata {
 
-    enum class TDLogLevel { TDDEBUG, TDINFO, TDERROR };
 
 #if defined(__APPLE__)
     
@@ -42,7 +41,6 @@ namespace thinkingdata {
         static string getEventID();
         static string getDeviceID();
         static void printSDKLog(const string &log);
-        static void printSDKLog(TDLogLevel level, const string &log);
         static void updateAccount(const char *token, const char *accountId, const char *path = "");
         static void updateDistinctId(const char *token, const char *distinctId, const char *path = "");
 
@@ -56,7 +54,5 @@ namespace thinkingdata {
         static int flush_bulk_size;
         static int mini_database_limit;
         static int64_t data_expression;
-
-        static bool isStringOnlySpaces(const string& str);
     };
 }

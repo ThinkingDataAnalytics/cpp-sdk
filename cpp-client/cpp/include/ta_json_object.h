@@ -102,7 +102,6 @@ namespace thinkingdata {
 
         static void JsonNodeToString(const ValueNode &node, string *buffer);
 
-        static void SetZoneOffset(double offset);
 
         ValueNodeType node_type_;
         std::vector<TDJSONObject> list_obj_;
@@ -129,14 +128,14 @@ namespace thinkingdata {
 
         static void DumpList(const std::vector<TDJSONObject> &value, string *buffer);
 
-        static void DumpDateTime(time_t seconds, int milliseconds,
+        static void DumpDateTime(const time_t &seconds, int milliseconds,
                                  string *buffer);
 
         static void DumpNumber(double value, string *buffer);
 
         static void DumpNumber(int64_t value, string *buffer);
 
-        static double zoneOffset;
+       
     };
 };
 

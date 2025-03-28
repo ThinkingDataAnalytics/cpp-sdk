@@ -4,8 +4,6 @@
 #include "ta_json_object.h"
 #include "ta_cpp_utils.h"
 #include <iostream>
-#include <iomanip>
-#include <sstream>
 
 #if defined(_WIN32)
 #include "windows.h"
@@ -15,7 +13,7 @@
 
 namespace thinkingdata {
     using namespace std;
-    double TDJSONObject::ValueNode::zoneOffset = 0;
+
     void TDJSONObject::SetNumber(const string &property_name, double value) {
         properties_map_[property_name] = ValueNode(value);
     }
@@ -39,8 +37,8 @@ namespace thinkingdata {
 
         if (!CheckUtf8Valid(property_name)) {
             std::cerr << "String Key '" << property_name
-                      << "' is not valid string, key: " << value
-                      << std::endl;
+                << "' is not valid string, key: " << value
+                << std::endl;
             return;
         }
 
@@ -187,18 +185,11 @@ namespace thinkingdata {
 #define snprintf sprintf_s
 #endif
 
-    void TDJSONObject::ValueNode::DumpDateTime(time_t seconds,
+    void TDJSONObject::ValueNode::DumpDateTime(const time_t &seconds,
                                                int milliseconds,
                                                string *buffer) {
         struct tm tm = {};
-//        TD_SDK_LOCALTIME(&seconds, &tm);
-        time_t offsetSeconds = (long)(zoneOffset * 3600);
-        seconds += offsetSeconds;
-#if defined(_WIN32)
-        gmtime_s(&tm, &seconds);
-#else
-        gmtime_r(&seconds, &tm);
-#endif
+        TD_SDK_LOCALTIME(&seconds, &tm);
         char buff[64];
         snprintf(buff, sizeof(buff), "\"%04d-%02d-%02d %02d:%02d:%02d.%03d\"",
                  tm.tm_year + 1900,
@@ -260,54 +251,4 @@ namespace thinkingdata {
         value_.date_time_value.milliseconds = milliseconds;
     }
 
-    void TDJSONObject::ValueNode::JsonNodeToString(const TDJSONObject::ValueNode &node,
-                                                   string *buffer) {
-        switch (node.node_type_) {
-            case NUMBER:
-                DumpNumber(node.value_.number_value, buffer);
-                break;
-            case INT:
-                DumpNumber(node.value_.int_value, buffer);
-                break;
-            case STRING:
-                DumpString(node.string_data_, buffer);
-                break;
-            case LIST:
-                DumpList(node.list_data_, buffer);
-                break;
-            case BOOL:
-                *buffer += (node.value_.bool_value ? "true" : "false");
-                break;
-            case OBJECT:
-                DumpNode(node.object_data_, buffer);
-                break;
-            case DATETIME:
-                DumpDateTime(node.value_.date_time_value.seconds,
-                             node.value_.date_time_value.milliseconds, buffer);
-                break;
-            case OBJECTS:
-                DumpList(node.list_obj_, buffer);
-                break;
-            default:
-                break;
-        }
-    }
-
-    void TDJSONObject::ValueNode::DumpNumber(double value, string *buffer) {
-        ostringstream buf;
-        buf.imbue(locale("C"));
-        buf << std::setprecision(std::numeric_limits<double>::max_digits10) << value;
-        *buffer += buf.str();
-    }
-
-    void TDJSONObject::ValueNode::DumpNumber(int64_t value, string *buffer) {
-        ostringstream buf;
-        buf.imbue(locale("C"));
-        buf << value;
-        *buffer += buf.str();
-    }
-
-    void TDJSONObject::ValueNode::SetZoneOffset(double offset) {
-        zoneOffset = offset;
-    }
 };

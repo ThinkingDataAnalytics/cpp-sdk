@@ -14,14 +14,13 @@ namespace thinkingdata {
 
     TATaskQueue* TATaskQueue::m_ta_dataTaskQue = nullptr;
     TATaskQueue* TATaskQueue::m_ta_networkTaskQue = nullptr;
-    TATaskQueue* TATaskQueue::m_ta_debugTaskQue = nullptr;
 
     mutex ta_sqlite_mtx;
 
     TASqiteInsetTask::TASqiteInsetTask(TAHttpSend* httpSend, TASqliteDataQueue* sqliteQueue, string event, string appid) :m_httpSend(httpSend), m_sqliteQueue(sqliteQueue), m_appid(appid), m_event(event) {}
     TANetworkTask::TANetworkTask(TASqliteDataQueue* sqliteQueue,TAHttpSend* httpSend, string appid): m_sqliteQueue(sqliteQueue), m_httpSend(httpSend), m_appid(appid) {}
     TAFlushTask::TAFlushTask(TASqliteDataQueue *sqliteQueue,TAHttpSend *httpSend, string appid): m_sqliteQueue(sqliteQueue), m_httpSend(httpSend), m_appid(appid) {}
-    TADebugTask::TADebugTask(TASqliteDataQueue *sqliteQueue, TAHttpSend *httpSend, string appid,string deviceId,string event,bool isDebugOnly):m_sqliteQueue(sqliteQueue), m_httpSend(httpSend),m_appid(appid),m_deviceId(deviceId),m_event(event),isDebugOnly(isDebugOnly){}
+    TADebugTask::TADebugTask(TAHttpSend *httpSend, string appid,string deviceId,string event,bool isDebugOnly):m_httpSend(httpSend),m_appid(appid),m_deviceId(deviceId),m_event(event),isDebugOnly(isDebugOnly){}
 
     TASqiteInsetTask::~TASqiteInsetTask() {}
     TANetworkTask::~TANetworkTask() {}
@@ -165,26 +164,9 @@ namespace thinkingdata {
         if(isDebugOnly){
             request_body.append("&dryRun=1");
         }
-        int debugResult = m_httpSend->SendDebugData(request_body);
-        if (debugResult == -1) {
-            if (ThinkingAnalyticsAPI::instance_->mode == TDMode::TD_DEBUG) {
-                TASqiteInsetTask *sqliteInsetTask = new TASqiteInsetTask(m_httpSend, m_sqliteQueue, m_event, m_appid);
-                shared_ptr<TAITask> task(sqliteInsetTask);
-                TATaskQueue::m_ta_debugTaskQue->PushTask(task);
-            } else if (ThinkingAnalyticsAPI::instance_->mode == TDMode::TD_DEBUG_ONLY) {
-                ta_cpp_helper::printSDKLog(TDLogLevel::TDDEBUG, "The data will be discarded due to this device is not allowed to debug:" + m_event);
-            }
-            ThinkingAnalyticsAPI::instance_->mode = TDMode::TD_NORMAL;
-            isDebugOnly = false;
-        } else if (debugResult == -2) {
-            ta_cpp_helper::printSDKLog(TDLogLevel::TDDEBUG, "Exception occurred when sending message to Server:" + m_event);
-            if (ThinkingAnalyticsAPI::instance_->mode == TDMode::TD_DEBUG) {
-                TASqiteInsetTask *sqliteInsetTask = new TASqiteInsetTask(m_httpSend, m_sqliteQueue, m_event, m_appid);
-                shared_ptr<TAITask> task(sqliteInsetTask);
-                TATaskQueue::m_ta_debugTaskQue->PushTask(task);
-            }
-        }
+        m_httpSend->SendDebugData(request_body);
     }
+
 
     void TASqiteInsetTask::Stop() {}
     void TANetworkTask::Stop() {}

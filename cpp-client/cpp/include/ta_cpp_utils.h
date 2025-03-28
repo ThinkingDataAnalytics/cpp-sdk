@@ -13,13 +13,6 @@
 namespace thinkingdata {
 using namespace std;
 
-class TALibInfo {
-public:
-    static void setCustomLibInfo(const string &lib, const string &libVersion);
-    static string getLibName();
-    static string getLibVersion();
-};
-
 class TAEnableLog {
 public:
     static bool getEnableLog();

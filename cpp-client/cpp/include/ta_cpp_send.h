@@ -62,7 +62,7 @@ namespace thinkingdata {
 
         bool send(const string &data);
 
-        int sendDebugData(const string &debugData);
+        bool sendDebugData(const string &debugData);
 
         Response fetchRemoteConfig();
 
@@ -95,7 +95,7 @@ namespace thinkingdata {
 
         bool Send(const TDJSONObject &record);
 
-        int SendDebugData(const string& json_record);
+        bool SendDebugData(const string& json_record);
 
         Response fetchRemoteConfig();
 

@@ -1,7 +1,6 @@
 #include "ta_calibrated_time.h"
 #include "ta_analytics_sdk.h"
 #include "ta_cpp_helper.h"
-#include "ta_cpp_utils.h"
 
 #if defined(_WIN32)
 #include <windows.h>
@@ -58,8 +57,8 @@ namespace thinkingdata {
 
     TDSystemInfo::TDSystemInfo() {
         try{
-            presetProperties.SetString("#lib_version", TALibInfo::getLibVersion());
-            presetProperties.SetString("#lib", TALibInfo::getLibName());
+            presetProperties.SetString("#lib_version", TD_LIB_VERSION);
+            presetProperties.SetString("#lib", TD_LIB_NAME);
             presetProperties.SetString("#device_id", ta_cpp_helper::getDeviceID());
 #if defined(_WIN32)
             presetProperties.SetString("#os", "Windows");
@@ -88,10 +87,6 @@ namespace thinkingdata {
         }catch (const std::exception&){
 
         }
-    }
-
-    void TDSystemInfo::SetZoneOffset(double zoneOffset) {
-        presetProperties.SetNumber("#zone_offset",zoneOffset);
     }
 
 }
