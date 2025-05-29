@@ -20,15 +20,9 @@ namespace thinkingdata {
             : server_url_(server_url), appid_(appid) {
 
         if(!server_url_.empty()) {
-            if (server_url_[strlen(server_url_.c_str()) - 1] == '/') {
-                configUrl = string(server_url_ + "config?appid="+appid_);
-                server_url_ = string(server_url_ + "sync");
-                debug_url_ = string(server_url + "data_debug");
-            } else {
-                configUrl = string(server_url_ + "/config?appid="+appid_);
-                server_url_ = string(server_url_ + "/sync");
-                debug_url_ = string(server_url + "/data_debug");
-            }
+            configUrl = string(server_url_ + "/config?appid="+appid_);
+            server_url_ = string(server_url_ + "/sync");
+            debug_url_ = string(server_url + "/data_debug");
         }
     }
 
