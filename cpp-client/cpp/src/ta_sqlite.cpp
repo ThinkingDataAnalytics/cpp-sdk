@@ -9,6 +9,7 @@
 #include<string>
 #include<iostream>
 #include <sys/timeb.h>
+#include <mutex>
 #include "ta_cpp_utils.h"
 
 namespace thinkingdata {
@@ -16,6 +17,7 @@ namespace thinkingdata {
     using namespace std;
     using std::tuple;
     char* G2U(const char* gb2312);
+    mutex ta_createtable_mtx;
 
     TASqliteDataQueue::TASqliteDataQueue(std::string appid,bool &initStatus,bool enableCrypt,int v,string &pKey,string &dbPath): m_appid(appid), m_allmessagecount(0) {
 
@@ -33,6 +35,7 @@ namespace thinkingdata {
             ta_cpp_helper::printSDKLog("[ThinkingData] Error: Can't open database: ");
             ta_cpp_helper::printSDKLog(sqlite3_errmsg(ta_database));
             initStatus = false;
+            return;
         }
         else
         {
@@ -46,7 +49,9 @@ namespace thinkingdata {
             std::string dataTable = "create table if not exists TDData (id INTEGER PRIMARY KEY AUTOINCREMENT, content TEXT, appid TEXT, creatAt INTEGER, uuid TEXT)";
 
             char* createDataTableErrMsg = nullptr;
+            ta_createtable_mtx.lock();
             int createDataTable = sqlite3_exec(ta_database, dataTable.c_str(), NULL, NULL, &createDataTableErrMsg);
+            ta_createtable_mtx.unlock();
             if (createDataTable != SQLITE_OK)
             {
                 ta_cpp_helper::printSDKLog("[ThinkingData] Error: SQL error:");

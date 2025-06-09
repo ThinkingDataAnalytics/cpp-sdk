@@ -24,13 +24,31 @@ if (CMAKE_HOST_APPLE)
     find_library(COCOA Cocoa)
     find_library(IOKIT IOKit)
     find_package(OpenSSL REQUIRED)
-    include_directories(${OPENSSL_INCLUDE_DIR})
-    link_directories(${OPENSSL_LIBRARIES})
-    add_library(thinkingdata SHARED cpp/src/ta_analytics_sdk.cpp cpp/src/ta_cpp_helper.cpp cpp/src/ta_cpp_network.cpp cpp/src/ta_cpp_utils.cpp cpp/src/ta_sqlite.cpp cpp/src/ta_timer.cpp cpp/src/ta_event_task.cpp cpp/src/ta_cpp_send.cpp cpp/src/ta_json_object.cpp cpp/src/ta_cJSON.c cpp/src/ta_mac_tool.mm cpp/src/ta_encrypt.cpp cpp/src/ta_calibrated_time.cpp cpp/src/ta_flush_task.cpp)
-    target_link_libraries(thinkingdata curl z sqlite3 ${OPENSSL_LIBRARIES} ${COCOA} ${IOKIT})
+    add_library(thinkingdata STATIC
+            cpp/src/ta_analytics_sdk.cpp
+            cpp/src/ta_cpp_helper.cpp
+            cpp/src/ta_cpp_network.cpp
+            cpp/src/ta_cpp_utils.cpp
+            cpp/src/ta_sqlite.cpp
+            cpp/src/ta_timer.cpp
+            cpp/src/ta_event_task.cpp
+            cpp/src/ta_cpp_send.cpp
+            cpp/src/ta_json_object.cpp
+            cpp/src/ta_cJSON.c
+            cpp/src/ta_mac_tool.mm
+            cpp/src/ta_encrypt.cpp
+            cpp/src/ta_calibrated_time.cpp
+            cpp/src/ta_flush_task.cpp
+    )
+    target_link_libraries(thinkingdata
+            curl
+            z
+            sqlite3
+            OpenSSL::Crypto
+            ${COCOA}
+            ${IOKIT}
+    )
 endif()
-
-
 
 add_executable(untitled1 main.cpp)
 target_link_libraries(untitled1 thinkingdata)

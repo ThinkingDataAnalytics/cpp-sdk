@@ -17,6 +17,22 @@ namespace thinkingdata {
 
     static bool _taEnableLog;
     static TALogType _logType = LOGNONE;
+    static string _lib = "CPP";
+    static string _libVersion = "1.4.5-beta.1";
+
+    void TALibInfo::setCustomLibInfo(const std::string &lib, const std::string &libVersion) {
+        _lib = lib;
+        _libVersion = libVersion;
+    }
+
+    string TALibInfo::getLibName() {
+        return _lib;
+    }
+
+    string TALibInfo::getLibVersion() {
+        return _libVersion;
+    }
+
     //mutex ta_enable_log_mutex;
     bool thinkingdata::TAEnableLog::getEnableLog() {
 //        bool _ta_enable_log = false;
@@ -243,10 +259,10 @@ bool CheckUtf8Valid(const string& str) {
 
 void stringArrayToTDJsonArray(tacJSON *myjson, TDJSONObject &property){
     tacJSON *child = myjson->child;
-    if(child != nullptr){
+    if(child != nullptr) {
         if (child->type == tacJSON_String) {
             vector<string> objs = vector<string>();
-            tacJSON* obj = child;
+            tacJSON *obj = child;
             while (obj != nullptr) {
                 objs.push_back(obj->valuestring);
                 obj = obj->next;
@@ -254,7 +270,7 @@ void stringArrayToTDJsonArray(tacJSON *myjson, TDJSONObject &property){
             property.SetList(myjson->string, objs);
         } else if (child->type == tacJSON_Object) {
             vector<TDJSONObject> objs = vector<TDJSONObject>();
-            tacJSON* obj = child;
+            tacJSON *obj = child;
             while (obj != nullptr) {
                 TDJSONObject _obj;
                 stringToTDJson(obj, _obj);

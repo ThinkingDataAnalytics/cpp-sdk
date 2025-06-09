@@ -26,6 +26,7 @@ namespace thinkingdata{
         void getTime(timeb *t);
         TDJSONObject presetProperties;
         TDSystemInfo();
+        void SetZoneOffset(double zoneOffset);
     };
 }
 
