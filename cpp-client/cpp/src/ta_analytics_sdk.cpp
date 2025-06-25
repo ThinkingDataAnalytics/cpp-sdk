@@ -12,7 +12,6 @@
 #include "ta_cpp_utils.h"
 #include "ta_calibrated_time.h"
 #include "ta_flush_task.h"
-#include <thread>
 #include "ta_error_msg.h"
 #include <ctime>
 #include <cmath>
@@ -159,11 +158,11 @@ double TDConfig::GetLocalTimeZoneOffset() {
 ThinkingAnalyticsAPI *ThinkingAnalyticsAPI::instance_ = NULL;
 
 void ThinkingAnalyticsAPI::fetchRemoteConfigCallback(bool calibrateTime,bool encrypt) {
-    if(instance_ && instance_->httpSend_){
-        Response res = instance_->httpSend_->fetchRemoteConfig();
-        if(res.code_ == 200){
-            ta_cpp_helper::printSDKLog("[ThinkingData] Info: Get remote config success, "+res.body_);
-            try{
+    try{
+        if(instance_ && instance_->httpSend_){
+            Response res = instance_->httpSend_->fetchRemoteConfig();
+            if(res.code_ == 200){
+                ta_cpp_helper::printSDKLog("[ThinkingData] Info: Get remote config success, "+res.body_);
                 tacJSON* root_obj = NULL;
                 TDJSONObject config;
                 root_obj = tacJSON_Parse(res.body_.c_str());
@@ -188,10 +187,10 @@ void ThinkingAnalyticsAPI::fetchRemoteConfigCallback(bool calibrateTime,bool enc
                     ta_cpp_helper::flush_interval =static_cast<int>(data.properties_map_["sync_interval"].value_.number_value);
                 }
                 tacJSON_Delete(root_obj);
-            } catch (runtime_error &e) {
-
             }
         }
+    } catch (runtime_error &e) {
+
     }
 }
 
@@ -332,9 +331,11 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
         tacJSON_Delete(root_obj);
 
         if(initSdkSuccess){
-            //Pull configuration information from the server
-            thread t = thread(fetchRemoteConfigCallback,config.enableAutoCalibrated,config.enableEncrypt);
-            t.detach();
+            instance_->m_ConfigThread = make_shared<thread>(
+                    [calibrateTime = config.enableAutoCalibrated, encrypt = config.enableEncrypt]() {
+                        instance_->fetchRemoteConfigCallback(calibrateTime, encrypt);
+                    }
+            );
             string result = "[ThinkingData] Info: ThinkingData SDK initialize success, AppId: = " + appid + ", ServerUrl = " + server_url + ", DeviceId = " + ta_cpp_helper::getDeviceID()+ ", LibVersion  = " + TALibInfo::getLibVersion();
             ta_cpp_helper::printSDKLog(result);
             ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, result);
@@ -439,7 +440,11 @@ bool ThinkingAnalyticsAPI::AddEvent(const string &action_type,
     }
     finalDic.SetDateTime("#time", t.time, t.millitm);
 
-    // finalDic.SetString("#uuid", ta_cpp_helper::getEventID());
+    string uuid = ta_cpp_helper::generateUUID();
+
+    if(!uuid.empty()){
+        finalDic.SetString("#uuid", uuid);
+    }
 
     ta_account_mtx.lock();
     if (account_id_.size()>0) {
@@ -832,6 +837,14 @@ void ThinkingAnalyticsAPI::UnInit()
         if(instance_->tdSystemInfo != nullptr){
             delete instance_->tdSystemInfo;
             instance_->tdSystemInfo = nullptr;
+        }
+
+        if (instance_->m_ConfigThread != nullptr) {
+            if (instance_->m_ConfigThread->joinable())
+            {
+                instance_->m_ConfigThread->join();
+            }
+            instance_->m_ConfigThread.reset();
         }
 
         delete instance_;

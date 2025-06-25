@@ -15,6 +15,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <thread>
 #include "ta_json_object.h"
 
 #ifdef _MSC_VER
@@ -319,6 +320,7 @@ private:
     map<string, int64_t> trackTimer;
     vector<void(*)(int,const string&)> funcs;
     DynamicSuperProperties dynamicSuperProperties = nullptr;
+    shared_ptr<thread> m_ConfigThread;
 };
 
 enum EventType {

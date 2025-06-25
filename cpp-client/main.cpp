@@ -222,6 +222,7 @@ int main(){
     ThinkingAnalyticsAPI::SetSuperProperty(superJson);
     ThinkingAnalyticsAPI::Track("test_event_2",json);
     ThinkingAnalyticsAPI::Flush();
-    std::this_thread::sleep_for(std::chrono::milliseconds(100000));
+    std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+    ThinkingAnalyticsAPI::UnInit();
     return 0;
 }

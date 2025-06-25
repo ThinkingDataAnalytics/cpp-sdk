@@ -282,27 +282,26 @@ namespace thinkingdata {
 
             if (sqlite3_prepare_v2(ta_database, query.c_str(), -1, &stmt, NULL) != SQLITE_OK) {
                 string errorString = string("Delete records Error: ") + string(sqlite3_errmsg(ta_database));
-//                fprintf(stdout, errorString.c_str());
                 sqlite3_finalize(stmt);
                 return false;
             }
-            bool success = true;
+            bool isSuccess = true;
             if (sqlite3_step(stmt) != SQLITE_DONE) {
                 string errorString = string("Delete records Error: ") + string(sqlite3_errmsg(ta_database));
-//                fprintf(stdout, errorString.c_str());
-                success = false;
+                isSuccess = false;
                 ta_cpp_helper::handleTECallback(1002,errorString);
             }
             sqlite3_finalize(stmt);
             m_allmessagecount = sqliteCount(m_appid);
+            return isSuccess;
         }
         catch (const std::exception&)
         {
             if (stmt != NULL) {
                 sqlite3_finalize(stmt);
             }
+            return false;
         }
-        return true;
     }
 
     long  TASqliteDataQueue::getAllMessageCount(string appid){

@@ -8,6 +8,7 @@
 #include "ta_cpp_utils.h"
 #if defined(_WIN32)
 #include <windows.h>
+#include <openssl/rand.h>
 #else
 #include <uuid/uuid.h>
 #endif
@@ -60,6 +61,42 @@ namespace thinkingdata {
 
  
         return uuid;
+#else
+        std::string guid("");
+        uuid_t uuid;
+        char str[50] = {};
+        uuid_generate(uuid);
+        uuid_unparse(uuid, str);
+        guid.assign(str);
+        return guid;
+#endif
+    }
+
+    string ta_cpp_helper::generateUUID() {
+#ifdef _WIN32
+        unsigned char buffer[16];
+
+        // 生成16字节(128位)随机数
+        if (RAND_bytes(buffer, 16) != 1) {
+            return "";
+        }
+
+        // 设置UUID版本为4 (随机生成)
+        buffer[6] = (buffer[6] & 0x0F) | 0x40; // 版本4
+        buffer[8] = (buffer[8] & 0x3F) | 0x80; // RFC 4122变体
+
+        // 格式化为标准UUID字符串
+        std::ostringstream oss;
+        oss << std::hex << std::nouppercase << std::setfill('0');
+
+        for (int i = 0; i < 16; i++) {
+            if (i == 4 || i == 6 || i == 8 || i == 10) {
+                oss << '-';
+            }
+            oss << std::setw(2) << static_cast<int>(buffer[i]);
+        }
+
+        return oss.str();
 #else
         std::string guid("");
         uuid_t uuid;

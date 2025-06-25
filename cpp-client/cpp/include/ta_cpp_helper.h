@@ -40,6 +40,7 @@ namespace thinkingdata {
     class ta_cpp_helper {
     public:
         static string getEventID();
+        static string generateUUID();
         static string getDeviceID();
         static void printSDKLog(const string &log);
         static void printSDKLog(TDLogLevel level, const string &log);

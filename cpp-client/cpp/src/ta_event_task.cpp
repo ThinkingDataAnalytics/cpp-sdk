@@ -108,7 +108,11 @@ namespace thinkingdata {
             bool result = m_httpSend->Send(flushDic);
             if (result == true) {
                 ta_sqlite_mtx.lock();
-                m_sqliteQueue->removeData(uuids);
+                bool deleteSuccess = m_sqliteQueue->removeData(uuids);
+                if(!deleteSuccess){
+                    //删除失败 终止循环
+                    break;
+                }
                 m_sqliteQueue->getFirstRecords(50, m_appid,records);
                 ta_sqlite_mtx.unlock();
             } else {
