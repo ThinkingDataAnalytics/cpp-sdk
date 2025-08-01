@@ -18,7 +18,7 @@ namespace thinkingdata {
     static bool _taEnableLog;
     static TALogType _logType = LOGNONE;
     static string _lib = "CPP";
-    static string _libVersion = "1.5.0";
+    static string _libVersion = "1.5.1";
 
     void TALibInfo::setCustomLibInfo(const std::string &lib, const std::string &libVersion) {
         _lib = lib;
@@ -279,6 +279,8 @@ void stringArrayToTDJsonArray(tacJSON *myjson, TDJSONObject &property){
             }
             property.SetList(myjson->string, objs);
         }
+    }else{
+        property.SetList(myjson->string, std::vector<std::string>());
     }
 }
 void stringToTDJson(tacJSON *myjson, TDJSONObject &property){
