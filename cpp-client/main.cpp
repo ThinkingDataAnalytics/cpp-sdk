@@ -118,16 +118,16 @@ int main(){
     cout << "Hello, World!" << endl;
     ThinkingAnalyticsAPI::EnableLogType(LOGCONSOLE);
     const string server_url = "https://receiver-ta-preview.thinkingdata.cn";
-    const string appid = "40eddce753cd4bef9883a01e168c3df0";
+    const string appid = "381f8bbad66c41a18923089321a1ba6f";
     TDConfig config;
     config.appid = appid;
     config.server_url = server_url;
     config.enableAutoCalibrated = true;
-    config.mode = TDMode::TD_NORMAL;
+//    config.mode = TDMode::TD_DEBUG;
     config.databaseLimit = 3000;
     config.dataExpression = 15;
 //    config.databasePath= "D:\\llbcode\\database\\db\\";
-    config.EnableEncrypt(1,"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAti6FnWGv7Lggzg/R8hQa4GEtd2ucfntqo6Xkf1sPwCIfndr2u6KGPhWQ24bFUKgtNLDuKnUAg1C/OEEL8uONJBdbX9XpckO67tRPSPrY3ufNIxsCJ9td557XxUsnebkOZ+oC1Duk8/ENx1pRvU6S4c+UYd6PH8wxw1agD61oJ0ju3CW0aZNZ2xKcWBcIU9KgYTeUtawrmGU5flod88CqZc8VKB1+nY0tav023jvxwkM3zgQ6vBWIU9/aViGECB98YEzJfZjcOTD6zvqsZc/WRnUNhBHFPGEwc8ueMvzZNI+FP0pUFLVRwVoYbj/tffKbxGExaRFIcgP73BIW6/6nQwIDAQAB");
+//    config.EnableEncrypt(1,"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAti6FnWGv7Lggzg/R8hQa4GEtd2ucfntqo6Xkf1sPwCIfndr2u6KGPhWQ24bFUKgtNLDuKnUAg1C/OEEL8uONJBdbX9XpckO67tRPSPrY3ufNIxsCJ9td557XxUsnebkOZ+oC1Duk8/ENx1pRvU6S4c+UYd6PH8wxw1agD61oJ0ju3CW0aZNZ2xKcWBcIU9KgYTeUtawrmGU5flod88CqZc8VKB1+nY0tav023jvxwkM3zgQ6vBWIU9/aViGECB98YEzJfZjcOTD6zvqsZc/WRnUNhBHFPGEwc8ueMvzZNI+FP0pUFLVRwVoYbj/tffKbxGExaRFIcgP73BIW6/6nQwIDAQAB");
     bool isInitSuccess = ThinkingAnalyticsAPI::Init(config);
     cout << "Hello, World!"<< isInitSuccess << endl;
     ThinkingAnalyticsAPI::SetDynamicSuperProperties(GetDynamicSuperProperties);
@@ -208,23 +208,18 @@ int main(){
     json3.SetString("new_name", "太阳");
     json.SetObject("object", json3);
     json.SetList("list1", std::vector<std::string>());
-//    for (int i = 0; i < 5; i++) {
-//        threads[i] = std::thread(myThread, i);
-//    }
-//    for (auto& t : threads) {
-//         t.join();
-//    }
+    for (int i = 0; i < 5; i++) {
+        threads[i] = std::thread(myThread, i);
+    }
+    for (auto& t : threads) {
+         t.join();
+    }
 //    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-    ThinkingAnalyticsAPI::Login("llb121");
-    ThinkingAnalyticsAPI::Identify("dis_123");
-    TDJSONObject superJson;
-    superJson.SetString("super_name","jack");
-    superJson.SetNumber("super_age",18);
-    superJson.SetList("super_list",std::vector<std::string>());
-    ThinkingAnalyticsAPI::SetSuperProperty(superJson);
-    ThinkingAnalyticsAPI::Track("test_event_2",json);
-    ThinkingAnalyticsAPI::Flush();
-    std::this_thread::sleep_for(std::chrono::milliseconds(10000));
-    ThinkingAnalyticsAPI::UnInit();
+//    ThinkingAnalyticsAPI::Login("llb121");
+//    ThinkingAnalyticsAPI::Identify("dis_123");
+//    ThinkingAnalyticsAPI::Track("test_event_2",json);
+//    ThinkingAnalyticsAPI::Flush();
+    std::this_thread::sleep_for(std::chrono::milliseconds(100000));
+//    ThinkingAnalyticsAPI::UnInit();
     return 0;
 }

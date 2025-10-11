@@ -160,9 +160,13 @@ namespace thinkingdata {
         request_body.append(m_deviceId);
         request_body.append("&source=client&data=");
         #if defined(_WIN32) && defined(_MSC_VER)
-        char* str = G2U(m_event.c_str());
-        request_body.append(urlEncode(string(str)));
-        delete str;
+        if (!CheckUtf8Valid(m_event.c_str())) {
+            char *str = G2U(m_event.c_str());
+            request_body.append(urlEncode(string(str)));
+            delete str;
+        }else{
+            request_body.append(urlEncode(m_event));
+        }
         #else
         request_body.append(urlEncode(m_event));
         #endif
@@ -236,19 +240,21 @@ namespace thinkingdata {
     void TATaskQueue::ThreadCallBack() {
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         while (!isStop) {
-            std::unique_lock<std::mutex> lock(m_lock);
-            if (m_taskQue.empty() && !isStop) {
-                cv.wait(lock);
-            }
-            if (!m_taskQue.empty()) {
-                shared_ptr<TAITask> tmp = m_taskQue.front();
-                if (!isStop && tmp != nullptr) {
-                    tmp->DoTask();
+            std::shared_ptr<TAITask> currentTask;
+            {
+                std::unique_lock<std::mutex> lock(m_lock);
+                if (m_taskQue.empty() && !isStop) {
+                    cv.wait(lock);
                 }
-                m_taskQue.pop();
-                tmp.reset();
+                if (!m_taskQue.empty() && !isStop) {
+                    currentTask = m_taskQue.front();
+                    m_taskQue.pop();
+                }
+                lock.unlock();
             }
-            lock.unlock();
+            if (currentTask && !isStop && !currentTask->isStop) {
+                currentTask->DoTask();
+            }
         }
     }
 };

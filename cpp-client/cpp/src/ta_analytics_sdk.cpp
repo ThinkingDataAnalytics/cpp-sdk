@@ -48,55 +48,6 @@ namespace thinkingdata {
     mutex ta_account_mtx;
     mutex ta_timer_mtx;
 
-
-void taCJsonToTDJson(tacJSON *myjson, TDJSONObject &property);
-
-void taCJsonArrayToTDJsonArray(tacJSON *myjson, TDJSONObject &property) {
-    tacJSON *child = myjson->child;
-    if (child->type == tacJSON_String) {
-        vector<string> objs = vector<string>();
-        tacJSON* obj = child;
-        while (obj != nullptr) {
-            objs.push_back(obj->valuestring);
-            obj = obj->next;
-        }
-        property.SetList(myjson->string, objs);
-    } else if (child->type == tacJSON_Object) {
-
-        vector<TDJSONObject> objs = vector<TDJSONObject>();
-        tacJSON* obj = child;
-        while (obj != nullptr) {
-            TDJSONObject _obj;
-            taCJsonToTDJson(obj, _obj);
-            objs.push_back(_obj);
-            obj = obj->next;
-        }
-        property.SetList(myjson->string, objs);
-    }
-}
-
-void taCJsonToTDJson(tacJSON *myjson, TDJSONObject &property) {
-    tacJSON* obj = myjson->child;
-    while (obj != nullptr) {
-        if (obj->type == tacJSON_String) {
-            property.SetString(obj->string,obj->valuestring);
-        } else if (obj->type == tacJSON_False) {
-            property.SetBool(obj->string, false);
-        } else if (obj->type == tacJSON_True) {
-            property.SetBool(obj->string, true);
-        } else if (obj->type == tacJSON_Number) {
-            property.SetNumber(obj->string, obj->valuedouble);
-        } else if (obj->type == tacJSON_Object) {
-            TDJSONObject _obj;
-            taCJsonToTDJson(obj, _obj);
-            property.SetObject(obj->string, _obj);
-        } else if (obj->type == tacJSON_Array) {
-            taCJsonArrayToTDJsonArray(obj, property);
-        }
-        obj = obj->next;
-    }
-}
-
 ThinkingAnalyticsEvent::ThinkingAnalyticsEvent(const string &eventName, const TDJSONObject& properties) {
     this->mEventName = eventName;
     this->mProperties = properties;
@@ -216,6 +167,8 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
             ta_cpp_helper::data_expression = config.dataExpression*24*60*60;
         }
 
+        config.zoneOffset = config.GetLocalTimeZoneOffset();
+
         TATaskQueue* dataTaskQue = new (std::nothrow) TATaskQueue();
         if (dataTaskQue == nullptr) {
             ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, "Failed to allocate memory for dataTaskQue");
@@ -325,7 +278,7 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
         if(oldSuperPropertyString.empty() != true) {
             root_obj = tacJSON_Parse(oldSuperPropertyString.c_str());
             if (root_obj != NULL && root_obj->type == tacJSON_Object) {
-                taCJsonToTDJson(root_obj, instance_->m_superProperties);
+                stringToTDJson(root_obj, instance_->m_superProperties);
             }
         }
         tacJSON_Delete(root_obj);
@@ -338,7 +291,6 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
             );
             string result = "[ThinkingData] Info: ThinkingData SDK initialize success, AppId: = " + appid + ", ServerUrl = " + server_url + ", DeviceId = " + ta_cpp_helper::getDeviceID()+ ", LibVersion  = " + TALibInfo::getLibVersion();
             ta_cpp_helper::printSDKLog(result);
-            ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, result);
             ta_cpp_helper::printSDKLog(TDLogLevel::TDINFO, TD_INIT_SUCCESS);
         }else{
             UnInit();
