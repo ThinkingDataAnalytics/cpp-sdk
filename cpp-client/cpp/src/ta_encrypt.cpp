@@ -31,6 +31,7 @@ namespace thinkingdata {
     }
 
     void TDRSAEncrypt::updateSecretKey(int version, const string &publicKey) {
+        lock_guard<mutex> lock(key_mutex_);
         this->version = version;
         this->publicKey = "-----BEGIN PUBLIC KEY-----\n"+publicKey+"\n-----END PUBLIC KEY-----\n";
     }
@@ -40,6 +41,13 @@ namespace thinkingdata {
             //Encryption is not enabled and the original data is returned directly
             encryptData = plain_text;
             return;
+        }
+        string pemSnapshot;
+        int pkv = 0;
+        {
+            lock_guard<mutex> lock(key_mutex_);
+            pemSnapshot = publicKey;
+            pkv = version;
         }
         unsigned char key[KEY_LEN];
         generate_key(key, KEY_LEN);
@@ -56,7 +64,7 @@ namespace thinkingdata {
         string strAes = base64_encode(cipher_text, cipher_len);
         delete[] cipher_text;
         string strRsa;
-        encryptSymmetricKey(key,strRsa);
+        encryptSymmetricKeyWithPem(key, strRsa, pemSnapshot);
         if(strRsa.empty()){
             encryptData = plain_text;
             ta_cpp_helper::handleTECallback(1004,"rsa encrypt error");
@@ -64,18 +72,25 @@ namespace thinkingdata {
         }
         //output encrypted result
         TDJSONObject json;
-        json.SetNumber("pkv",this->version);
+        json.SetNumber("pkv", pkv);
         json.SetString("ekey",strRsa);
         json.SetString("payload",strAes);
         encryptData = TDJSONObject::ToJson(json);
     }
 
     void TDRSAEncrypt::encryptSymmetricKey(unsigned char *key,string &rsaData) {
+        string pemSnapshot;
+        {
+            lock_guard<mutex> lock(key_mutex_);
+            pemSnapshot = publicKey;
+        }
+        encryptSymmetricKeyWithPem(key, rsaData, pemSnapshot);
+    }
 
-        const char* public_key_str = this->publicKey.c_str();
+    void TDRSAEncrypt::encryptSymmetricKeyWithPem(unsigned char *key, string &rsaData, const string &pem) {
         unsigned char ciphertext[256];
         size_t ciphertext_len = 0;
-        if (!rsa_public_encrypt(public_key_str, key, KEY_LEN, ciphertext, ciphertext_len)) {
+        if (!rsa_public_encrypt(pem.c_str(), key, KEY_LEN, ciphertext, ciphertext_len)) {
             rsaData = "";
             return;
         }

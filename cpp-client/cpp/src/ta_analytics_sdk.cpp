@@ -13,7 +13,9 @@
 #include "ta_calibrated_time.h"
 #include "ta_flush_task.h"
 #include "ta_error_msg.h"
+#include "ta_seh_guard.h"
 #include <ctime>
+#include <chrono>
 #include <cmath>
 
 #if defined(_WIN32)
@@ -108,6 +110,39 @@ double TDConfig::GetLocalTimeZoneOffset() {
 
 ThinkingAnalyticsAPI *ThinkingAnalyticsAPI::instance_ = NULL;
 
+namespace {
+    struct TDRemoteConfigArgs {
+        bool calibrateTime;
+        bool encrypt;
+    };
+
+    struct TDSqliteInitArgs {
+        const string *appid;
+        TDConfig *config;
+        TASqliteDataQueue *queue;
+        bool initStatus;
+    };
+}
+
+void ThinkingAnalyticsAPI::sehFetchRemoteConfig(void *arg) {
+    TDRemoteConfigArgs *args = static_cast<TDRemoteConfigArgs *>(arg);
+    fetchRemoteConfigCallback(args->calibrateTime, args->encrypt);
+}
+
+void ThinkingAnalyticsAPI::sehCreateSqliteQueue(void *arg) {
+    TDSqliteInitArgs *args = static_cast<TDSqliteInitArgs *>(arg);
+    args->queue = new (std::nothrow) TASqliteDataQueue(*args->appid,
+                                                      args->initStatus,
+                                                      args->config->enableEncrypt,
+                                                      args->config->version,
+                                                      args->config->publicKey,
+                                                      args->config->databasePath);
+}
+
+void ThinkingAnalyticsAPI::sehUnInitSqliteQueue(void *arg) {
+    static_cast<TASqliteDataQueue *>(arg)->unInit();
+}
+
 void ThinkingAnalyticsAPI::fetchRemoteConfigCallback(bool calibrateTime,bool encrypt) {
     try{
         if(instance_ && instance_->httpSend_){
@@ -146,6 +181,11 @@ void ThinkingAnalyticsAPI::fetchRemoteConfigCallback(bool calibrateTime,bool enc
 }
 
 bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
+    if (tdSehTripped()) {
+        ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, "SDK is disabled after a hardware exception, initialize refused");
+        return false;
+    }
+
     if (!instance_) {
         bool initSdkSuccess = true;
         string server_url = config.server_url;
@@ -183,9 +223,15 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
         }
 
 
-        bool initStatus;
-        TASqliteDataQueue* sqlite = new (std::nothrow) TASqliteDataQueue(appid,initStatus,config.enableEncrypt,config.version,config.publicKey,config.databasePath);
-        if (sqlite == nullptr || !initStatus) {
+        TDSqliteInitArgs sqliteArgs;
+        sqliteArgs.appid = &appid;
+        sqliteArgs.config = &config;
+        sqliteArgs.queue = nullptr;
+        sqliteArgs.initStatus = false;
+        tdSehCall(ThinkingAnalyticsAPI::sehCreateSqliteQueue, &sqliteArgs, "TASqliteDataQueue::init");
+
+        TASqliteDataQueue* sqlite = sqliteArgs.queue;
+        if (sqlite == nullptr || !sqliteArgs.initStatus) {
             ta_cpp_helper::printSDKLog(TDLogLevel::TDERROR, "Failed to allocate memory for TASqliteDataQueue Init");
             initSdkSuccess = false;
             ins->staging_file_path_ = "";
@@ -286,7 +332,8 @@ bool ThinkingAnalyticsAPI::Init(TDConfig &config) {
         if(initSdkSuccess){
             instance_->m_ConfigThread = make_shared<thread>(
                     [calibrateTime = config.enableAutoCalibrated, encrypt = config.enableEncrypt]() {
-                        instance_->fetchRemoteConfigCallback(calibrateTime, encrypt);
+                        TDRemoteConfigArgs args = {calibrateTime, encrypt};
+                        tdSehCall(ThinkingAnalyticsAPI::sehFetchRemoteConfig, &args, "fetchRemoteConfig");
                     }
             );
             string result = "[ThinkingData] Info: ThinkingData SDK initialize success, AppId: = " + appid + ", ServerUrl = " + server_url + ", DeviceId = " + ta_cpp_helper::getDeviceID()+ ", LibVersion  = " + TALibInfo::getLibVersion();
@@ -781,7 +828,7 @@ void ThinkingAnalyticsAPI::UnInit()
 
         if (instance_->m_sqlite != nullptr) {
             instance_->m_sqlite->isStop = true;
-            instance_->m_sqlite->unInit();
+            tdSehCall(ThinkingAnalyticsAPI::sehUnInitSqliteQueue, instance_->m_sqlite, "TASqliteDataQueue::unInit");
             delete instance_->m_sqlite;
             instance_->m_sqlite = nullptr;
         }

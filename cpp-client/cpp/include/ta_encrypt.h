@@ -1,6 +1,7 @@
 #ifndef UNTITLED1_TA_ENCRYPT_H
 #define UNTITLED1_TA_ENCRYPT_H
 #include <iostream>
+#include <mutex>
 
 namespace thinkingdata{
 
@@ -32,8 +33,10 @@ namespace thinkingdata{
     private:
         int version;
         string publicKey;
+        mutex key_mutex_;
         static const int KEY_LEN = 16;
         void generate_key(unsigned char* key, int len);
+        void encryptSymmetricKeyWithPem(unsigned char *key, string &rsaData, const string &pem);
         bool aes_ecb_encrypt(const unsigned char* key, const unsigned char* in, int in_len, unsigned char* out, int& out_len);
         string base64_encode(const unsigned char* in, int in_len);
         bool rsa_public_encrypt(const char* public_key, const unsigned char* in, size_t in_len, unsigned char* out, size_t& out_len);

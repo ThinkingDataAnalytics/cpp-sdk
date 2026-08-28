@@ -4,8 +4,13 @@
 #include "ta_flush_task.h"
 #include "ta_analytics_sdk.h"
 #include "ta_cpp_helper.h"
+#include "ta_seh_guard.h"
 
 namespace thinkingdata {
+
+    static void tdInvokeFlush(void *) {
+        ThinkingAnalyticsAPI::Flush();
+    }
     TDFlushTask::~TDFlushTask() {
         std::unique_lock<std::mutex> lock(m_lock);
         is_stop = true;
@@ -35,7 +40,7 @@ namespace thinkingdata {
             std::chrono::seconds timer_duration(ta_cpp_helper::flush_interval);
             std::unique_lock<std::mutex> lock(m_lock);
             cv.wait_for(lock, timer_duration, [this] { return is_stop; });
-            ThinkingAnalyticsAPI::Flush();
+            tdSehCall(tdInvokeFlush, nullptr, "TDFlushTask::Flush");
             lock.unlock();
         }
     }

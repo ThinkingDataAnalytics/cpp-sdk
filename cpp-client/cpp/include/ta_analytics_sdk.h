@@ -305,6 +305,11 @@ private:
 
     static void fetchRemoteConfigCallback(bool calibrateTime,bool encrypt);
 
+    // SEH 保护用的跳板，arg 指向调用方栈上的参数结构。
+    static void sehFetchRemoteConfig(void *arg);
+    static void sehCreateSqliteQueue(void *arg);
+    static void sehUnInitSqliteQueue(void *arg);
+
     string appid_;
     string server_url_;
     string account_id_;

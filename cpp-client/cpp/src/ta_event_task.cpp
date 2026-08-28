@@ -9,8 +9,13 @@
 #include "ta_cpp_utils.h"
 #include "ta_cpp_helper.h"
 #include "ta_cJSON.h"
+#include "ta_seh_guard.h"
 
 namespace thinkingdata {
+
+    static void tdInvokeTask(void *task) {
+        static_cast<TAITask *>(task)->DoTask();
+    }
 
     TATaskQueue* TATaskQueue::m_ta_dataTaskQue = nullptr;
     TATaskQueue* TATaskQueue::m_ta_networkTaskQue = nullptr;
@@ -75,9 +80,10 @@ namespace thinkingdata {
 
         TDJSONObject flushDic;
         vector<tuple<string, string>> records;
-        ta_sqlite_mtx.lock();
-        m_sqliteQueue->getFirstRecords(50, m_appid,records);
-        ta_sqlite_mtx.unlock();
+        {
+            std::lock_guard<std::mutex> lock(ta_sqlite_mtx);
+            m_sqliteQueue->getFirstRecords(50, m_appid,records);
+        }
 
         while (!records.empty()) {
 
@@ -107,14 +113,14 @@ namespace thinkingdata {
 
             bool result = m_httpSend->Send(flushDic);
             if (result == true) {
-                ta_sqlite_mtx.lock();
+                // 必须用 RAII：下面的 break 会跳出 while，裸 unlock 到不了
+                std::lock_guard<std::mutex> lock(ta_sqlite_mtx);
                 bool deleteSuccess = m_sqliteQueue->removeData(uuids);
                 if(!deleteSuccess){
                     //删除失败 终止循环
                     break;
                 }
                 m_sqliteQueue->getFirstRecords(50, m_appid,records);
-                ta_sqlite_mtx.unlock();
             } else {
                 return;
             }
@@ -253,7 +259,7 @@ namespace thinkingdata {
                 lock.unlock();
             }
             if (currentTask && !isStop && !currentTask->isStop) {
-                currentTask->DoTask();
+                tdSehCall(tdInvokeTask, currentTask.get(), "TATaskQueue::DoTask");
             }
         }
     }

@@ -13,10 +13,21 @@ if(WIN32)
         include_directories(cpp/thirdparty/x86/curl/include cpp/thirdparty/x86/zlib/include cpp/thirdparty/x86/sqlite/include cpp/thirdparty/x86/openssl/include)
         link_directories(cpp/thirdparty/x86/curl/lib cpp/thirdparty/x86/zlib/lib cpp/thirdparty/x86/sqlite/lib cpp/thirdparty/x86/openssl/lib)
 #        link_directories(cpp/thirdparty/x86/curl/staticlib cpp/thirdparty/x86/zlib/staticlib cpp/thirdparty/x86/sqlite/staticlib cpp/thirdparty/x86/openssl/staticlib)
+        # zlibwapi.dll exports WINAPI-decorated symbols; required for x86 link
+        add_compile_definitions(ZLIB_WINAPI)
     endif()
-    add_library(thinkingdata SHARED cpp/src/ta_analytics_sdk.cpp cpp/src/ta_cpp_helper.cpp cpp/src/ta_cpp_network.cpp cpp/src/ta_cpp_utils.cpp cpp/src/ta_sqlite.cpp cpp/src/ta_timer.cpp cpp/src/ta_event_task.cpp cpp/src/ta_cpp_send.cpp cpp/src/ta_json_object.cpp cpp/src/ta_cJSON.c cpp/src/ta_encrypt.cpp cpp/src/ta_calibrated_time.cpp cpp/src/ta_flush_task.cpp)
+    add_library(thinkingdata SHARED cpp/src/ta_analytics_sdk.cpp cpp/src/ta_cpp_helper.cpp cpp/src/ta_cpp_network.cpp cpp/src/ta_cpp_utils.cpp cpp/src/ta_sqlite.cpp cpp/src/ta_timer.cpp cpp/src/ta_event_task.cpp cpp/src/ta_cpp_send.cpp cpp/src/ta_json_object.cpp cpp/src/ta_cJSON.c cpp/src/ta_encrypt.cpp cpp/src/ta_calibrated_time.cpp cpp/src/ta_flush_task.cpp cpp/src/ta_seh_guard.cpp)
     target_link_libraries(thinkingdata libcurl sqlite3 zlibwapi libssl libcrypto)
-#    add_library(thinkingdata STATIC cpp/src/ta_analytics_sdk.cpp cpp/src/ta_cpp_helper.cpp cpp/src/ta_cpp_network.cpp cpp/src/ta_cpp_utils.cpp cpp/src/ta_sqlite.cpp cpp/src/ta_timer.cpp cpp/src/ta_event_task.cpp cpp/src/ta_cpp_send.cpp cpp/src/ta_json_object.cpp cpp/src/ta_cJSON.c cpp/src/ta_encrypt.cpp cpp/src/ta_calibrated_time.cpp cpp/src/ta_flush_task.cpp)
+    # Debug outputs thinkingdata_d.dll / .lib / .exp / .pdb (same as historical cppsdk)
+    # Keep PDB for packaging / crash diagnosis (same as Feishu doc)
+    target_compile_options(thinkingdata PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/Zi>)
+    target_link_options(thinkingdata PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/DEBUG /OPT:REF /OPT:ICF>)
+    set_target_properties(thinkingdata PROPERTIES
+        DEBUG_POSTFIX "_d"
+        PDB_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>"
+        COMPILE_PDB_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIG>"
+    )
+#    add_library(thinkingdata STATIC cpp/src/ta_analytics_sdk.cpp cpp/src/ta_cpp_helper.cpp cpp/src/ta_cpp_network.cpp cpp/src/ta_cpp_utils.cpp cpp/src/ta_sqlite.cpp cpp/src/ta_timer.cpp cpp/src/ta_event_task.cpp cpp/src/ta_cpp_send.cpp cpp/src/ta_json_object.cpp cpp/src/ta_cJSON.c cpp/src/ta_encrypt.cpp cpp/src/ta_calibrated_time.cpp cpp/src/ta_flush_task.cpp cpp/src/ta_seh_guard.cpp)
 #    target_link_libraries(thinkingdata wldap32 ws2_32 Crypt32 Normaliz libssl libcrypto libcurl_a sqlite3 zlibstat)
 endif()
 
@@ -39,6 +50,7 @@ if (CMAKE_HOST_APPLE)
             cpp/src/ta_encrypt.cpp
             cpp/src/ta_calibrated_time.cpp
             cpp/src/ta_flush_task.cpp
+            cpp/src/ta_seh_guard.cpp
     )
     target_link_libraries(thinkingdata
             curl

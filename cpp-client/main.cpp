@@ -208,17 +208,17 @@ int main(){
     json3.SetString("new_name", "太阳");
     json.SetObject("object", json3);
     json.SetList("list1", std::vector<std::string>());
-    for (int i = 0; i < 5; i++) {
-        threads[i] = std::thread(myThread, i);
-    }
-    for (auto& t : threads) {
-         t.join();
-    }
+    // for (int i = 0; i < 5; i++) {
+    //     threads[i] = std::thread(myThread, i);
+    // }
+    // for (auto& t : threads) {
+    //      t.join();
+    // }
 //    std::this_thread::sleep_for(std::chrono::milliseconds(3000));
-//    ThinkingAnalyticsAPI::Login("llb121");
-//    ThinkingAnalyticsAPI::Identify("dis_123");
-//    ThinkingAnalyticsAPI::Track("test_event_2",json);
-//    ThinkingAnalyticsAPI::Flush();
+   ThinkingAnalyticsAPI::Login("llb121");
+   ThinkingAnalyticsAPI::Identify("dis_123");
+   ThinkingAnalyticsAPI::Track("test_event_2",json);
+   ThinkingAnalyticsAPI::Flush();
     std::this_thread::sleep_for(std::chrono::milliseconds(100000));
 //    ThinkingAnalyticsAPI::UnInit();
     return 0;
